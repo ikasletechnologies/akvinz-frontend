@@ -834,8 +834,15 @@ export default function AdminDashboardPage() {
     setEditForm({
       paymentStatus: customer.paymentStatus,
       subscriptionStatus: customer.subscriptionStatus,
-      rentalPlanDuration: customer.rentalPlanDuration ? String(customer.rentalPlanDuration) : "",
-      rentalAmount: customer.rentalAmount ? String(customer.rentalAmount) : "",
+      // Falls back to the customer's originally-committed plan when
+      // rentalPlanDuration/rentalAmount are still unset — this happens for
+      // anyone whose autopay was first activated by the subscription.charged
+      // webhook before it started backfilling these fields (see
+      // webhook.controller.ts); they'd otherwise show "Not set" until their
+      // next monthly charge fires. Saving here writes the fallback in for
+      // good, matching the backend's own "already on file" fallback.
+      rentalPlanDuration: String(customer.rentalPlanDuration || customer.planDuration),
+      rentalAmount: String(customer.rentalAmount || RENTAL_AMOUNTS[customer.planDuration] || ""),
       subscriptionStart: customer.subscriptionStart ? customer.subscriptionStart.slice(0, 10) : "",
       subscriptionEnd: customer.subscriptionEnd ? customer.subscriptionEnd.slice(0, 10) : "",
       returnRequested: String(customer.returnRequested),
