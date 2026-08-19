@@ -409,6 +409,7 @@ export default function AdminDashboardPage() {
   const [payoutHistory, setPayoutHistory] = useState<PayoutRecord[]>([]);
   const [payoutHistoryLoading, setPayoutHistoryLoading] = useState(false);
   const [payoutHistoryError, setPayoutHistoryError] = useState("");
+  const [refundingNow, setRefundingNow] = useState(false);
   const [newPlanDuration, setNewPlanDuration] = useState("");
   const [planChangeAmount, setPlanChangeAmount] = useState("");
   const [planChangeTopUpUrl, setPlanChangeTopUpUrl] = useState("");
@@ -994,6 +995,28 @@ export default function AdminDashboardPage() {
       setError("Error connecting to server");
     } finally {
       setMarkingPaidId("");
+    }
+  };
+
+  const handleRefundNow = async () => {
+    if (!selected) return;
+    if (!confirm(`Refund ₹${selected.refundAmount} to ${selected.fullName} via Razorpay now? This sends the money immediately to their original payment method.`)) return;
+    setRefundingNow(true);
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/refund-now`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setSelected(data.customer);
+        loadInvoices(selected.id);
+        loadCustomers();
+      } else {
+        setError(data.message || "Failed to process refund");
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setRefundingNow(false);
     }
   };
 
@@ -2368,6 +2391,31 @@ export default function AdminDashboardPage() {
                         />
                       </div>
                     </div>
+
+                    {selected.paymentStatus === "PENDING_REFUND" && (
+                      <div className="border-t border-gray-800 mt-6 pt-6">
+                        {selected.refundAmount !== null ? (
+                          <div className="bg-[#131724] border border-gray-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm text-gray-200 font-medium">Refund ₹{selected.refundAmount} now via Razorpay</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Sends the money immediately to the customer&apos;s original payment method &mdash; they don&apos;t need to confirm on their own link first.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleRefundNow}
+                              disabled={refundingNow}
+                              className="px-4 py-2 text-sm bg-[#f26522] hover:bg-[#e05a1e] rounded-lg font-medium disabled:opacity-50 shrink-0"
+                            >
+                              {refundingNow ? "Processing..." : "Refund Now via Razorpay"}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">Set and save a refund amount above to enable an immediate Razorpay refund.</p>
+                        )}
+                      </div>
+                    )}
 
                     {selected.returnRequested && (
                       <div className="border-t border-gray-800 mt-6 pt-6">
