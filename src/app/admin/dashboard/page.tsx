@@ -421,6 +421,20 @@ export default function AdminDashboardPage() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
+  const [moneyPayoutAmount, setMoneyPayoutAmount] = useState("");
+  const [moneyPayoutReason, setMoneyPayoutReason] = useState("");
+  const [moneyPayoutReasonOther, setMoneyPayoutReasonOther] = useState("");
+  const [activePayoutTx, setActivePayoutTx] = useState<any | null>(null);
+  const [payoutOtpCode, setPayoutOtpCode] = useState("");
+  const [payoutMaskedMobile, setPayoutMaskedMobile] = useState("");
+  const [requestingPayoutOtp, setRequestingPayoutOtp] = useState(false);
+  const [verifyingPayoutOtp, setVerifyingPayoutOtp] = useState(false);
+  const [payoutOtpSent, setPayoutOtpSent] = useState(false);
+  const [payoutOtpResendCooldown, setPayoutOtpResendCooldown] = useState(0);
+  const [moneyTransactions, setMoneyTransactions] = useState<any[]>([]);
+  const [moneyTransactionsLoading, setMoneyTransactionsLoading] = useState(false);
+  const [moneyTransactionsError, setMoneyTransactionsError] = useState("");
+  const [payoutInitiatedStep, setPayoutInitiatedStep] = useState(false);
   const [newPlanDuration, setNewPlanDuration] = useState("");
   const [planChangeAmount, setPlanChangeAmount] = useState("");
   const [planChangeTopUpUrl, setPlanChangeTopUpUrl] = useState("");
@@ -654,6 +668,14 @@ export default function AdminDashboardPage() {
   }, [otpResendCooldown]);
 
   useEffect(() => {
+    if (payoutOtpResendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setPayoutOtpResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [payoutOtpResendCooldown]);
+
+  useEffect(() => {
     setPage(1);
   }, [search, paymentStatus, subscriptionStatus, assetStatus]);
 
@@ -728,14 +750,37 @@ export default function AdminDashboardPage() {
       .finally(() => setPayoutHistoryLoading(false));
   }, []);
 
+  const loadMoneyTransactions = useCallback((customerId: string) => {
+    setMoneyTransactionsLoading(true);
+    setMoneyTransactionsError("");
+    adminFetch(`/api/admin/customers/${customerId}/money-transactions`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setMoneyTransactions(data.transactions);
+        } else {
+          setMoneyTransactions([]);
+          setMoneyTransactionsError(data.message || "Failed to load transactions");
+        }
+      })
+      .catch(() => {
+        setMoneyTransactions([]);
+        setMoneyTransactionsError("Error connecting to server");
+      })
+      .finally(() => setMoneyTransactionsLoading(false));
+  }, []);
+
   useEffect(() => {
     if (!selected) {
       setPayoutHistory([]);
       setPayoutHistoryError("");
+      setMoneyTransactions([]);
+      setMoneyTransactionsError("");
       return;
     }
     loadPayoutHistory(selected.id);
-  }, [selected, loadPayoutHistory]);
+    loadMoneyTransactions(selected.id);
+  }, [selected, loadPayoutHistory, loadMoneyTransactions]);
 
   useEffect(() => {
     setShowReturnHistory(false);
@@ -1133,6 +1178,102 @@ export default function AdminDashboardPage() {
         setPlanChangeRefundInitiated(false);
       } else {
         setError(data.message || "Failed to cancel OTP");
+      }
+    } catch {
+      setError("Error connecting to server");
+    }
+  };
+
+  const requestPayoutOtp = async () => {
+    if (!selected) return;
+    const amountRs = Number(moneyPayoutAmount);
+    if (!amountRs || amountRs <= 0) {
+      setError("Please enter a valid payout amount.");
+      return;
+    }
+    const finalReason = moneyPayoutReason === "Other" ? moneyPayoutReasonOther : moneyPayoutReason;
+    if (!finalReason) {
+      setError("Please enter a reason for the payout.");
+      return;
+    }
+
+    setRequestingPayoutOtp(true);
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/money-transactions/payout/request-otp`, {
+        method: "POST",
+        body: JSON.stringify({
+          amountPaise: Math.round(amountRs * 100),
+          reason: finalReason
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutMaskedMobile(data.maskedMobile);
+        setActivePayoutTx(data.transaction || { id: data.transactionId, amount: amountRs, reason: finalReason, status: "OTP_PENDING" });
+        setPayoutOtpSent(true);
+        setPayoutOtpResendCooldown(30);
+        setPayoutInitiatedStep(false);
+      } else {
+        setError(data.message || "Failed to request OTP for payout");
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setRequestingPayoutOtp(false);
+    }
+  };
+
+  const verifyPayoutOtpAndExecute = async () => {
+    if (!selected || !activePayoutTx || !payoutOtpCode) return;
+    setVerifyingPayoutOtp(true);
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/money-transactions/payout/verify-otp`, {
+        method: "POST",
+        body: JSON.stringify({
+          transactionId: activePayoutTx.id,
+          code: payoutOtpCode
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActivePayoutTx(data.transaction);
+        setPayoutOtpSent(false);
+        setPayoutOtpCode("");
+        loadMoneyTransactions(selected.id);
+      } else {
+        setError(data.message || "OTP verification failed");
+        if (data.transaction) {
+          setActivePayoutTx(data.transaction);
+        }
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setVerifyingPayoutOtp(false);
+    }
+  };
+
+  const cancelPayout = async () => {
+    if (!selected || !activePayoutTx) return;
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/money-transactions/payout/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ transactionId: activePayoutTx.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActivePayoutTx(null);
+        setPayoutOtpSent(false);
+        setPayoutOtpCode("");
+        setMoneyPayoutAmount("");
+        setMoneyPayoutReason("");
+        setMoneyPayoutReasonOther("");
+        setPayoutInitiatedStep(false);
+      } else {
+        setError(data.message || "Failed to cancel payout");
       }
     } catch {
       setError("Error connecting to server");
@@ -1838,57 +1979,258 @@ export default function AdminDashboardPage() {
 
                     {transactionMode === "pay" ? (
                       <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">Amount</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={payoutAmount}
-                            onChange={(e) => setPayoutAmount(e.target.value)}
-                            placeholder="e.g. 100"
-                            className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">Reason</label>
-                          <input
-                            type="text"
-                            value={payoutReason}
-                            onChange={(e) => setPayoutReason(e.target.value)}
-                            placeholder="e.g. Deposit refund"
-                            className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">
-                            Payment Proof &mdash; attach before you can record this payment
-                          </label>
-                          <div
-                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${payoutProofFile ? "border-gray-700 bg-[#131724]" : "border-gray-800 bg-[#131724]/40"
-                              }`}
-                          >
-                            <span className={payoutProofFile ? "text-gray-300 truncate" : "text-gray-600"}>
-                              {payoutProofFile ? payoutProofFile.name : "No file attached"}
-                            </span>
-                            <label className="font-medium text-gray-400 hover:text-white cursor-pointer shrink-0">
-                              {payoutProofFile ? "Replace" : "Attach"}
-                              <input
-                                type="file"
-                                accept=".png,.jpg,.jpeg,.pdf"
-                                className="hidden"
-                                onChange={(e) => setPayoutProofFile(e.target.files?.[0] || null)}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={recordPayout}
-                          disabled={recordingPayout || !payoutProofFile}
-                          className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
-                        >
-                          {recordingPayout ? "Recording..." : "Record Payment"}
-                        </button>
+                        {(() => {
+                          const bankAccountNumber = selected.bankAccountNumber || selected.refundBankAccountNumber;
+                          const bankIfscCode = selected.bankIfscCode || selected.refundBankIfscCode;
+                          const bankAccountHolderName = selected.bankAccountHolderName || selected.refundBankAccountHolderName;
+                          const bankName = selected.bankName || selected.refundBankName || "Bank";
+
+                          const hasBankDetails = !!(bankAccountNumber && bankIfscCode && bankAccountHolderName);
+                          const maskedAccount = bankAccountNumber ? `••••${bankAccountNumber.slice(-4)}` : "";
+
+                          // 1. DEFAULT FORM VIEW
+                          if (!activePayoutTx && !payoutInitiatedStep && !payoutOtpSent) {
+                            return (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-1">Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={moneyPayoutAmount}
+                                    onChange={(e) => setMoneyPayoutAmount(e.target.value)}
+                                    placeholder="e.g. 100"
+                                    className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                                  <select
+                                    value={moneyPayoutReason}
+                                    onChange={(e) => setMoneyPayoutReason(e.target.value)}
+                                    className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                                  >
+                                    <option value="">-- Select Reason --</option>
+                                    <option value="Deposit Refund">Deposit Refund</option>
+                                    <option value="Overpayment Refund">Overpayment Refund</option>
+                                    <option value="Security Deposit Return">Security Deposit Return</option>
+                                    <option value="Customer Compensation">Customer Compensation</option>
+                                    <option value="Order Refund">Order Refund</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </div>
+                                {moneyPayoutReason === "Other" && (
+                                  <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Custom Reason</label>
+                                    <input
+                                      type="text"
+                                      value={moneyPayoutReasonOther}
+                                      onChange={(e) => setMoneyPayoutReasonOther(e.target.value)}
+                                      placeholder="Enter custom reason"
+                                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                                    />
+                                  </div>
+                                )}
+                                <div className="p-3 bg-[#131724]/40 border border-gray-800 rounded-lg space-y-1">
+                                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Recipient Details</div>
+                                  {hasBankDetails ? (
+                                    <div className="text-xs text-gray-300">
+                                      <span className="font-semibold text-white">{bankAccountHolderName}</span> &middot; {bankName} ({maskedAccount})
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-red-400 font-medium">
+                                      ⚠️ Missing bank details. Send customer the bankDetailsForm link first.
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setPayoutInitiatedStep(true)}
+                                  disabled={!hasBankDetails || !moneyPayoutAmount || !moneyPayoutReason}
+                                  className="w-full px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-30"
+                                >
+                                  Initiate Payout
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          // 2. CONFIRMATION VIEW
+                          if (payoutInitiatedStep && !payoutOtpSent) {
+                            return (
+                              <div className="border border-yellow-600/30 bg-[#131724] p-4 rounded-lg space-y-4">
+                                <div className="text-xs font-semibold text-white uppercase tracking-wider">Confirm Customer Payment</div>
+                                <p className="text-xs text-gray-300">
+                                  You are about to pay <span className="text-white font-semibold">₹{moneyPayoutAmount}</span> to{" "}
+                                  <span className="text-white font-semibold">{selected.fullName}</span>.
+                                </p>
+                                <div className="text-xs space-y-1 bg-[#0b0d16] p-3 rounded-lg border border-gray-800">
+                                  <div><span className="text-gray-500">Reason:</span> <span className="text-gray-200">{moneyPayoutReason === "Other" ? moneyPayoutReasonOther : moneyPayoutReason}</span></div>
+                                  <div><span className="text-gray-500">Method:</span> <span className="text-gray-200 font-medium text-yellow-500">Razorpay Payout</span></div>
+                                  <div><span className="text-gray-500">Recipient:</span> <span className="text-gray-200">{bankAccountHolderName} &middot; {maskedAccount}</span></div>
+                                </div>
+                                <p className="text-[10px] text-gray-500">
+                                  This will transfer real money immediately from the company's RazorpayX business payout account.
+                                </p>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={requestPayoutOtp}
+                                    disabled={requestingPayoutOtp}
+                                    className="flex-1 px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-50"
+                                  >
+                                    {requestingPayoutOtp ? "Sending..." : "Continue to OTP"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPayoutInitiatedStep(false)}
+                                    disabled={requestingPayoutOtp}
+                                    className="px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // 3. OTP VERIFICATION VIEW
+                          if (payoutOtpSent && activePayoutTx?.status === "OTP_PENDING") {
+                            return (
+                              <div className="border border-yellow-600/30 bg-[#131724] p-4 rounded-lg space-y-4">
+                                <div className="text-xs font-semibold text-white uppercase tracking-wider">Verify Payout</div>
+                                <p className="text-xs text-gray-300">
+                                  A verification code was sent to your registered admin mobile ending in <span className="text-white font-medium">{payoutMaskedMobile}</span>.
+                                </p>
+                                <div>
+                                  <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Enter OTP</label>
+                                  <input
+                                    type="text"
+                                    maxLength={6}
+                                    value={payoutOtpCode}
+                                    onChange={(e) => setPayoutOtpCode(e.target.value.replace(/\D/g, ""))}
+                                    placeholder="e.g. 123456"
+                                    className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm tracking-widest text-center text-white"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={verifyPayoutOtpAndExecute}
+                                    disabled={verifyingPayoutOtp || payoutOtpCode.length !== 6}
+                                    className="flex-1 px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-50"
+                                  >
+                                    {verifyingPayoutOtp ? "Processing..." : `Verify & Pay ₹${activePayoutTx.amount}`}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelPayout}
+                                    disabled={verifyingPayoutOtp}
+                                    className="px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                <div className="text-center">
+                                  <button
+                                    type="button"
+                                    disabled={payoutOtpResendCooldown > 0 || requestingPayoutOtp}
+                                    onClick={requestPayoutOtp}
+                                    className="text-xs text-[#f26522] hover:underline disabled:opacity-50"
+                                  >
+                                    {payoutOtpResendCooldown > 0 ? `Resend OTP in ${payoutOtpResendCooldown}s` : "Resend OTP"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // 4. PROCESSING VIEW
+                          if (activePayoutTx?.status === "PROCESSING" || activePayoutTx?.status === "QUEUED" || activePayoutTx?.status === "PENDING") {
+                            return (
+                              <div className="border border-yellow-600/30 bg-[#131724] p-4 rounded-lg space-y-3 text-center">
+                                <div className="text-xs text-yellow-400 font-semibold animate-pulse">✓ OTP Verified</div>
+                                <p className="text-xs text-gray-300">
+                                  ₹{activePayoutTx.amount || Math.round(activePayoutTx.amountPaise / 100)} payout to {selected.fullName} is being processed.
+                                </p>
+                                <p className="text-xs text-gray-500 font-medium">
+                                  Please do not retry or refresh this window. Status details: {activePayoutTx.razorpayPayoutStatus || "processing"}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActivePayoutTx(null);
+                                    setMoneyPayoutAmount("");
+                                    setMoneyPayoutReason("");
+                                    setMoneyPayoutReasonOther("");
+                                  }}
+                                  className="w-full mt-2 px-3 py-1.5 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                                >
+                                  Close Details
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          // 5. SUCCESS VIEW
+                          if (activePayoutTx?.status === "SUCCESS") {
+                            return (
+                              <div className="border border-green-600/30 bg-green-500/5 p-4 rounded-lg space-y-3">
+                                <div className="text-xs font-semibold text-green-400">✓ Payment Successful</div>
+                                <p className="text-xs text-gray-300">
+                                  ₹{activePayoutTx.amount || Math.round(activePayoutTx.amountPaise / 100)} paid to <span className="text-white font-medium">{selected.fullName}</span>.
+                                </p>
+                                <div className="text-xs space-y-1 bg-[#0b0d16] p-3 rounded-lg border border-gray-800">
+                                  <div><span className="text-gray-500">Reason:</span> <span className="text-gray-200">{activePayoutTx.reason}</span></div>
+                                  <div><span className="text-gray-500">Method:</span> <span className="text-gray-200 font-medium">RazorpayX Payout</span></div>
+                                  {activePayoutTx.razorpayPayoutId && <div><span className="text-gray-500">Payout ID:</span> <span className="text-gray-200">{activePayoutTx.razorpayPayoutId}</span></div>}
+                                  {activePayoutTx.razorpayUtr && <div><span className="text-gray-500">UTR:</span> <span className="text-gray-200 font-medium text-green-400">{activePayoutTx.razorpayUtr}</span></div>}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActivePayoutTx(null);
+                                    setMoneyPayoutAmount("");
+                                    setMoneyPayoutReason("");
+                                    setMoneyPayoutReasonOther("");
+                                  }}
+                                  className="w-full px-3 py-2 text-xs bg-green-600/20 border border-green-600/40 rounded-lg text-green-400 hover:bg-green-600/30 transition-colors"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          // 6. FAILURE/REJECTED VIEW
+                          if (activePayoutTx?.status === "FAILED" || activePayoutTx?.status === "REJECTED" || activePayoutTx?.status === "CANCELLED") {
+                            return (
+                              <div className="border border-red-600/30 bg-red-500/5 p-4 rounded-lg space-y-3">
+                                <div className="text-xs font-semibold text-red-400">❌ Payout Failed / Halted</div>
+                                <p className="text-xs text-gray-300">
+                                  The payout of ₹{activePayoutTx.amount || Math.round(activePayoutTx.amountPaise / 100)} could not be processed.
+                                </p>
+                                <div className="text-xs bg-[#0b0d16] p-3 rounded-lg border border-gray-800">
+                                  <span className="text-gray-500">Reason:</span> <span className="text-red-300">{activePayoutTx.razorpayStatusReason || "Authorization failed or cancelled"}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActivePayoutTx(null);
+                                    setMoneyPayoutAmount("");
+                                    setMoneyPayoutReason("");
+                                    setMoneyPayoutReasonOther("");
+                                  }}
+                                  className="w-full px-3 py-2 text-xs bg-red-600/20 border border-red-600/40 rounded-lg text-red-400 hover:bg-red-600/30 transition-colors"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })()}
                       </div>
                     ) : (
                       <>
@@ -1928,99 +2270,63 @@ export default function AdminDashboardPage() {
 
                     <div className="mt-4">
                       <p className="text-xs text-gray-500 mb-2">Transaction History</p>
-                      {payoutHistoryLoading || paymentLinkHistoryLoading ? (
+                      {moneyTransactionsLoading ? (
                         <p className="text-xs text-gray-500">Loading...</p>
-                      ) : payoutHistoryError || paymentLinkHistoryError ? (
+                      ) : moneyTransactionsError ? (
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs text-red-400">{payoutHistoryError || paymentLinkHistoryError}</p>
+                          <p className="text-xs text-red-400">{moneyTransactionsError}</p>
                           <button
                             type="button"
                             onClick={() => {
-                              if (!selected) return;
-                              loadPayoutHistory(selected.id);
-                              loadPaymentLinkHistory(selected.id);
+                              if (selected) loadMoneyTransactions(selected.id);
                             }}
                             className="text-xs text-[#f26522] hover:underline shrink-0"
                           >
                             Retry
                           </button>
                         </div>
-                      ) : payoutHistory.length === 0 && paymentLinkHistory.length === 0 ? (
+                      ) : moneyTransactions.length === 0 ? (
                         <p className="text-xs text-gray-500">No transactions yet.</p>
                       ) : (
                         <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {[
-                            ...payoutHistory.map((p) => ({
-                              key: `payout-${p.id}`,
-                              direction: "Admin → Customer",
-                              amount: p.amount,
-                              detail: p.reason,
-                              statusLabel: "Completed",
-                              statusColor: "text-green-400",
-                              date: new Date(p.createdAt),
-                              link: null as PaymentLinkRecord | null,
-                              proofUrl: p.proofUrl as string | null,
-                            })),
-                            ...paymentLinkHistory.map((r) => {
-                              const expired = new Date(r.expireBy) < new Date();
-                              const statusLabel = r.status === "PAID" ? "Paid" : expired ? "Expired" : "Pending";
-                              const statusColor = r.status === "PAID" ? "text-green-400" : expired ? "text-gray-500" : "text-yellow-400";
-                              return {
-                                key: `link-${r.id}`,
-                                direction: "Customer → Admin",
-                                amount: r.amount,
-                                detail: "Payment Link",
-                                statusLabel,
-                                statusColor,
-                                date: new Date(r.status === "PAID" && r.paidAt ? r.paidAt : r.createdAt),
-                                link: r,
-                                proofUrl: null as string | null,
-                              };
-                            }),
-                          ]
-                            .sort((a, b) => b.date.getTime() - a.date.getTime())
-                            .map((row) => (
+                          {moneyTransactions.map((tx) => {
+                            const isPayout = tx.direction === "PAY_TO_CUSTOMER";
+                            const directionLabel = isPayout ? "Admin → Customer" : "Customer → Admin";
+                            const amount = (tx.amountPaise / 100).toFixed(2);
+                            
+                            let statusColor = "text-yellow-400";
+                            if (tx.status === "SUCCESS") statusColor = "text-green-400";
+                            else if (tx.status === "FAILED" || tx.status === "REJECTED" || tx.status === "CANCELLED") statusColor = "text-red-400";
+                            else if (tx.status === "REVERSED") statusColor = "text-orange-400";
+
+                            return (
                               <div
-                                key={row.key}
-                                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-700 bg-[#131724] text-xs"
+                                key={tx.id}
+                                className="p-3 rounded-lg border border-gray-700 bg-[#131724] text-xs space-y-2"
                               >
-                                <div>
-                                  <div className="text-gray-200 font-medium">
-                                    {row.direction} · ₹{row.amount} <span className={row.statusColor}>· {row.statusLabel}</span>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="text-gray-200 font-semibold">
+                                      {directionLabel} &middot; ₹{amount}
+                                    </div>
+                                    <div className="text-gray-400 text-[11px] font-medium mt-0.5">
+                                      {tx.reason}
+                                    </div>
                                   </div>
-                                  <div className="text-gray-500">
-                                    {row.detail} · {formatDateTimeDMY(row.date)}
-                                  </div>
+                                  <span className={`font-semibold uppercase tracking-wider text-[10px] ${statusColor}`}>
+                                    {tx.status}
+                                  </span>
                                 </div>
-                                {row.proofUrl && (
-                                  <a
-                                    href={row.proofUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[#f26522] hover:underline shrink-0"
-                                  >
-                                    View Proof
-                                  </a>
-                                )}
-                                {row.link && row.link.status !== "PAID" && (
-                                  <div className="flex items-center gap-3 shrink-0">
-                                    <button
-                                      onClick={() => copyHistoryLink(row.link as PaymentLinkRecord)}
-                                      className="text-[#f26522] hover:underline"
-                                    >
-                                      {copiedPaymentLinkId === row.link.id ? "Copied!" : "Copy"}
-                                    </button>
-                                    <button
-                                      onClick={() => markLinkAsPaid(row.link as PaymentLinkRecord)}
-                                      disabled={markingPaidId === row.link.id}
-                                      className="text-green-400 hover:underline disabled:opacity-50"
-                                    >
-                                      {markingPaidId === row.link.id ? "Marking..." : "Mark as Paid"}
-                                    </button>
-                                  </div>
-                                )}
+                                <div className="text-[11px] text-gray-500 space-y-0.5 border-t border-gray-800/60 pt-2">
+                                  <div>Method: {tx.method === "RAZORPAY_PAYOUT" ? "RazorpayX Payout" : tx.method}</div>
+                                  {tx.razorpayPayoutId && <div>Payout ID: {tx.razorpayPayoutId}</div>}
+                                  {tx.razorpayUtr && <div>UTR: <span className="font-mono text-gray-400">{tx.razorpayUtr}</span></div>}
+                                  {tx.recipientIdentifierSnapshot && <div>To: {tx.recipientIdentifierSnapshot}</div>}
+                                  <div className="text-[10px] text-gray-600 mt-1">{formatDateTimeDMY(new Date(tx.createdAt))}</div>
+                                </div>
                               </div>
-                            ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
