@@ -843,7 +843,19 @@ export default function AdminDashboardPage() {
       // good, matching the backend's own "already on file" fallback.
       rentalPlanDuration: String(customer.rentalPlanDuration || customer.planDuration),
       rentalAmount: String(customer.rentalAmount || RENTAL_AMOUNTS[customer.planDuration] || ""),
-      subscriptionStart: customer.subscriptionStart ? customer.subscriptionStart.slice(0, 10) : "",
+      // Same legacy gap as rentalPlanDuration above, one field over: the old
+      // subscription.charged webhook set subscriptionEnd (from Razorpay's
+      // current_end) but never set subscriptionStart at all — only the
+      // fixed activateRentalCycle path sets both together. lastPaymentDate
+      // WAS set by that old code and is the closest available proxy for
+      // when the current billing cycle actually began; there's no more
+      // accurate value stored anywhere for these legacy customers. Saving
+      // here backfills the real column, same as above.
+      subscriptionStart: customer.subscriptionStart
+        ? customer.subscriptionStart.slice(0, 10)
+        : customer.lastPaymentDate
+        ? customer.lastPaymentDate.slice(0, 10)
+        : "",
       subscriptionEnd: customer.subscriptionEnd ? customer.subscriptionEnd.slice(0, 10) : "",
       returnRequested: String(customer.returnRequested),
       refundAmount: customer.refundAmount !== null ? String(customer.refundAmount) : "",
