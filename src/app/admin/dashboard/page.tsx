@@ -412,6 +412,7 @@ export default function AdminDashboardPage() {
   const [payoutHistoryError, setPayoutHistoryError] = useState("");
   const [refundingNow, setRefundingNow] = useState(false);
   const [refundingPlanChangeNow, setRefundingPlanChangeNow] = useState(false);
+  const [planChangeRefundInitiated, setPlanChangeRefundInitiated] = useState(false);
   const [newPlanDuration, setNewPlanDuration] = useState("");
   const [planChangeAmount, setPlanChangeAmount] = useState("");
   const [planChangeTopUpUrl, setPlanChangeTopUpUrl] = useState("");
@@ -832,6 +833,7 @@ export default function AdminDashboardPage() {
     setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[defaultPlan] - SECURITY_DEPOSIT_AMOUNTS[customer.planDuration])));
     setPlanChangeTopUpUrl("");
     setCopiedTopUpLink(false);
+    setPlanChangeRefundInitiated(false);
     setEditingBankDetails(false);
     setEditForm({
       paymentStatus: customer.paymentStatus,
@@ -1041,6 +1043,11 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Two-step on purpose: "Initiate" just reveals a review panel (nothing
+  // moves yet) so the admin sees exactly who/how much before committing —
+  // "Confirm Refund" below is what actually calls Razorpay. Replaces a
+  // single click + a generic browser confirm() popup, which is easy to
+  // blow through for an action that sends real money.
   const refundPlanChangeViaRazorpay = async () => {
     if (!selected) return;
     const amount = Number(planChangeAmount);
@@ -1048,7 +1055,6 @@ export default function AdminDashboardPage() {
       setError("Enter a valid refund amount above first");
       return;
     }
-    if (!confirm(`Refund ₹${amount} to ${selected.fullName} via Razorpay now? This sends the money immediately to their original payment method.`)) return;
     setRefundingPlanChangeNow(true);
     setError("");
     try {
@@ -1059,6 +1065,7 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (data.success) {
         setSelected(data.customer);
+        setPlanChangeRefundInitiated(false);
       } else {
         setError(data.message || "Failed to process refund");
       }
@@ -2174,6 +2181,7 @@ export default function AdminDashboardPage() {
                           setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[target] - SECURITY_DEPOSIT_AMOUNTS[selected.planDuration])));
                           setPlanChangeTopUpUrl("");
                           setCopiedTopUpLink(false);
+                          setPlanChangeRefundInitiated(false);
                         }}
                         className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
                       >
@@ -2244,15 +2252,40 @@ export default function AdminDashboardPage() {
                                 <div className="px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400">
                                   Refunded via Razorpay &mdash; ID: {selected.planChangeRazorpayRefundId}
                                 </div>
+                              ) : planChangeRefundInitiated ? (
+                                <div className="border border-yellow-600/40 bg-yellow-500/5 rounded-lg p-3 space-y-2">
+                                  <p className="text-xs text-gray-300">
+                                    About to refund <span className="text-white font-semibold">₹{Number(planChangeAmount) || 0}</span> to{" "}
+                                    <span className="text-white font-semibold">{selected.fullName}</span> via Razorpay, against their
+                                    original deposit payment. This sends the money immediately — review the amount above before confirming.
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={refundPlanChangeViaRazorpay}
+                                      disabled={refundingPlanChangeNow}
+                                      className="flex-1 px-3 py-2 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded-lg text-[#f26522] hover:bg-[#f26522]/20 transition-colors disabled:opacity-50"
+                                    >
+                                      {refundingPlanChangeNow ? "Refunding..." : `Confirm Refund (₹${Number(planChangeAmount) || 0})`}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPlanChangeRefundInitiated(false)}
+                                      disabled={refundingPlanChangeNow}
+                                      className="px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
                               ) : (
                                 <>
                                   <button
                                     type="button"
-                                    onClick={refundPlanChangeViaRazorpay}
-                                    disabled={refundingPlanChangeNow}
-                                    className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                                    onClick={() => setPlanChangeRefundInitiated(true)}
+                                    className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
                                   >
-                                    {refundingPlanChangeNow ? "Refunding..." : `Refund via Razorpay (₹${Math.abs(planChangeDifference())})`}
+                                    {`Initiate Refund via Razorpay (₹${Math.abs(planChangeDifference())})`}
                                   </button>
                                   <p className="text-xs text-gray-500 text-center">or</p>
                                   <label className="block text-xs text-gray-400 mb-1">
