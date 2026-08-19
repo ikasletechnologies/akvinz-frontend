@@ -1066,6 +1066,8 @@ export default function AdminDashboardPage() {
       if (data.success) {
         setSelected(data.customer);
         setPlanChangeRefundInitiated(false);
+        // Automatically apply the plan change since the refund succeeded
+        await confirmPlanChange(true);
       } else {
         setError(data.message || "Failed to process refund");
       }
@@ -1116,7 +1118,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const confirmPlanChange = async () => {
+  const confirmPlanChange = async (skipConfirm = false) => {
     if (!selected || !newPlanDuration) return;
     const target = Number(newPlanDuration);
     const difference = planChangeDifference();
@@ -1125,11 +1127,13 @@ export default function AdminDashboardPage() {
       setError("Enter a valid amount paid/refunded");
       return;
     }
-    const confirmMsg =
-      difference > 0
-        ? `Apply the ${target}-month plan? This records a ₹${amountHandled} deposit top-up receipt.`
-        : `Apply the ${target}-month plan? This records a ₹${amountHandled} deposit refund — make sure the refund has actually been sent to the customer.`;
-    if (!confirm(confirmMsg)) return;
+    if (!skipConfirm) {
+      const confirmMsg =
+        difference > 0
+          ? `Apply the ${target}-month plan? This records a ₹${amountHandled} deposit top-up receipt.`
+          : `Apply the ${target}-month plan? This records a ₹${amountHandled} deposit refund — make sure the refund has actually been sent to the customer.`;
+      if (!confirm(confirmMsg)) return;
+    }
 
     setChangingPlan(true);
     try {
