@@ -2321,7 +2321,7 @@ export default function AdminDashboardPage() {
                               <>
                                 <button
                                   type="button"
-                                  onClick={confirmPlanChange}
+                                  onClick={() => confirmPlanChange()}
                                   disabled={changingPlan || blocked}
                                   className="w-full mt-3 px-3 py-2 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded-lg text-[#f26522] hover:bg-[#f26522]/20 transition-colors disabled:opacity-50"
                                 >
