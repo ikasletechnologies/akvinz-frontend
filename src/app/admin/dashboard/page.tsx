@@ -1066,8 +1066,6 @@ export default function AdminDashboardPage() {
       if (data.success) {
         setSelected(data.customer);
         setPlanChangeRefundInitiated(false);
-        // Automatically apply the plan change since the refund succeeded
-        await confirmPlanChange(true);
       } else {
         setError(data.message || "Failed to process refund");
       }
@@ -2222,46 +2220,90 @@ export default function AdminDashboardPage() {
                             />
                           </div>
 
-                          {planChangeDifference() > 0 && (
-                            <div className="mt-2">
-                              <button
-                                type="button"
-                                onClick={generateTopUpLink}
-                                disabled={generatingTopUpLink}
-                                className="px-3 py-1.5 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
-                              >
-                                {generatingTopUpLink ? "Generating..." : `Generate Top-up Link (₹${planChangeDifference()})`}
-                              </button>
-                              {planChangeTopUpUrl && (
-                                <div className="flex items-center justify-between gap-2 mt-2 px-3 py-2 rounded-lg border border-gray-700 bg-[#131724] text-xs">
-                                  <span className="text-gray-300 truncate">{planChangeTopUpUrl}</span>
-                                  <button
-                                    type="button"
-                                    onClick={copyTopUpLink}
-                                    className="text-[#f26522] hover:underline shrink-0"
-                                  >
-                                    {copiedTopUpLink ? "Copied!" : "Copy Link"}
-                                  </button>
-                                </div>
-                              )}
-                              <p className="text-xs text-gray-500 mt-2">
-                                The plan change applies automatically once this link is paid — no need to also click Confirm below.
-                              </p>
-                            </div>
-                          )}
+                          {planChangeDifference() > 0 && (() => {
+                            const activeTopUpLink = paymentLinkHistory.find(
+                              (r) => r.status === "CREATED" && r.planChangeTargetDuration === Number(newPlanDuration)
+                            );
+                            const currentLinkUrl = planChangeTopUpUrl || activeTopUpLink?.shortUrl;
+
+                            return (
+                              <div className="mt-2 space-y-2">
+                                {currentLinkUrl ? (
+                                  <>
+                                    <div className="px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400">
+                                      ✓ Payment Link Generated (₹{planChangeDifference()} top-up)
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 mt-2 px-3 py-2 rounded-lg border border-gray-700 bg-[#131724] text-xs">
+                                      <span className="text-gray-300 truncate">{currentLinkUrl}</span>
+                                      <div className="flex gap-2">
+                                        <a href={currentLinkUrl} target="_blank" rel="noreferrer" className="text-[#f26522] hover:underline shrink-0">
+                                          Open Link
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              await navigator.clipboard.writeText(currentLinkUrl);
+                                              setCopiedTopUpLink(true);
+                                              setTimeout(() => setCopiedTopUpLink(false), 2000);
+                                            } catch {
+                                              setError("Failed to copy link");
+                                            }
+                                          }}
+                                          className="text-[#f26522] hover:underline shrink-0 font-medium"
+                                        >
+                                          {copiedTopUpLink ? "Copied!" : "Copy Link"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-[#f26522] font-semibold animate-pulse mt-2">
+                                      Waiting for customer payment... The {newPlanDuration}-month plan will be applied automatically after payment succeeds.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={generateTopUpLink}
+                                      disabled={generatingTopUpLink}
+                                      className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                                    >
+                                      {generatingTopUpLink ? "Generating..." : `Generate Top-up Link (₹${planChangeDifference()})`}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {planChangeDifference() < 0 && (
                             <div className="mt-2 space-y-2">
                               {selected.planChangeRazorpayRefundId ? (
                                 <div className="px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400">
-                                  Refunded via Razorpay &mdash; ID: {selected.planChangeRazorpayRefundId}
+                                  ✓ ₹{Number(planChangeAmount) || Math.abs(planChangeDifference())} refunded via Razorpay (ID: {selected.planChangeRazorpayRefundId})
+                                </div>
+                              ) : selected.planChangeRefundProofUrl ? (
+                                <div className="border border-green-600/40 bg-green-500/10 rounded-lg p-3 space-y-2">
+                                  <div className="text-xs text-green-400 font-medium">✓ Refund proof uploaded</div>
+                                  <DocumentChip
+                                    label="Refund Proof"
+                                    url={selected.planChangeRefundProofUrl}
+                                    uploading={uploadingDocKey === "planChangeRefundProofUrl"}
+                                    deleting={deletingDocKey === "planChangeRefundProofUrl"}
+                                    onUpload={(file) => handleUploadDocument("planChangeRefundProofUrl", "planChangeRefundProofFile", file)}
+                                    onDelete={() => handleDeleteDocument("planChangeRefundProofUrl")}
+                                  />
+                                </div>
+                              ) : refundingPlanChangeNow ? (
+                                <div className="px-3 py-2 rounded-lg border border-yellow-600/40 bg-yellow-500/10 text-xs text-yellow-400 animate-pulse text-center">
+                                  Refund processing... Please wait.
                                 </div>
                               ) : planChangeRefundInitiated ? (
                                 <div className="border border-yellow-600/40 bg-yellow-500/5 rounded-lg p-3 space-y-2">
                                   <p className="text-xs text-gray-300">
                                     About to refund <span className="text-white font-semibold">₹{Number(planChangeAmount) || 0}</span> to{" "}
                                     <span className="text-white font-semibold">{selected.fullName}</span> via Razorpay, against their
-                                    original deposit payment. This sends the money immediately — review the amount above before confirming.
+                                    original deposit payment. This sends the money immediately &mdash; review the amount above before confirming.
                                   </p>
                                   <div className="flex gap-2">
                                     <button
@@ -2270,7 +2312,7 @@ export default function AdminDashboardPage() {
                                       disabled={refundingPlanChangeNow}
                                       className="flex-1 px-3 py-2 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded-lg text-[#f26522] hover:bg-[#f26522]/20 transition-colors disabled:opacity-50"
                                     >
-                                      {refundingPlanChangeNow ? "Refunding..." : `Confirm Refund (₹${Number(planChangeAmount) || 0})`}
+                                      Confirm Refund (₹{Number(planChangeAmount) || 0})
                                     </button>
                                     <button
                                       type="button"
@@ -2283,13 +2325,13 @@ export default function AdminDashboardPage() {
                                   </div>
                                 </div>
                               ) : (
-                                <>
+                                <div className="space-y-2">
                                   <button
                                     type="button"
                                     onClick={() => setPlanChangeRefundInitiated(true)}
                                     className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
                                   >
-                                    {`Initiate Refund via Razorpay (₹${Math.abs(planChangeDifference())})`}
+                                    Initiate Refund via Razorpay (₹{Math.abs(planChangeDifference())})
                                   </button>
                                   <p className="text-xs text-gray-500 text-center">or</p>
                                   <label className="block text-xs text-gray-400 mb-1">
@@ -2303,20 +2345,13 @@ export default function AdminDashboardPage() {
                                     onUpload={(file) => handleUploadDocument("planChangeRefundProofUrl", "planChangeRefundProofFile", file)}
                                     onDelete={() => handleDeleteDocument("planChangeRefundProofUrl")}
                                   />
-                                </>
+                                </div>
                               )}
                             </div>
                           )}
 
-                          {(() => {
-                            const isUpgrade = planChangeDifference() > 0;
-                            const isDowngrade = planChangeDifference() < 0;
-                            const hasPaidTopUpLink = paymentLinkHistory.some(
-                              (r) => r.status === "PAID" && r.planChangeTargetDuration === Number(newPlanDuration)
-                            );
-                            const blocked =
-                              (isDowngrade && !selected.planChangeRefundProofUrl && !selected.planChangeRazorpayRefundId) ||
-                              (isUpgrade && !hasPaidTopUpLink);
+                          {planChangeDifference() < 0 && (() => {
+                            const blocked = !selected.planChangeRefundProofUrl && !selected.planChangeRazorpayRefundId;
                             return (
                               <>
                                 <button
@@ -2325,13 +2360,11 @@ export default function AdminDashboardPage() {
                                   disabled={changingPlan || blocked}
                                   className="w-full mt-3 px-3 py-2 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded-lg text-[#f26522] hover:bg-[#f26522]/20 transition-colors disabled:opacity-50"
                                 >
-                                  {changingPlan ? "Applying..." : "Confirm & Apply Plan Change"}
+                                  {changingPlan ? "Applying..." : `Apply ${newPlanDuration}-Month Plan`}
                                 </button>
                                 {blocked && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {isDowngrade
-                                      ? "Refund via Razorpay or upload proof of the refund above to enable this."
-                                      : "Mark the top-up link above as paid to enable this."}
+                                  <p className="text-xs text-gray-500 mt-1 text-center">
+                                    Refund via Razorpay or upload proof of the refund above to enable this.
                                   </p>
                                 )}
                               </>
@@ -2351,25 +2384,36 @@ export default function AdminDashboardPage() {
                           }
                           return (
                             <div className="space-y-2 max-h-48 overflow-y-auto">
-                              {planChangeInvoices.map((inv) => (
-                                <div
-                                  key={inv.id}
-                                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-700 bg-[#131724] text-xs"
-                                >
-                                  <div>
-                                    <div className="text-gray-200 font-medium">
-                                      ₹{inv.amount}{" "}
-                                      <span className={inv.type === "REFUND" ? "text-yellow-400" : "text-green-400"}>
-                                        · {inv.type === "REFUND" ? "Refunded" : "Received"}
-                                      </span>
+                              {planChangeInvoices.map((inv) => {
+                                const isRefund = inv.type === "REFUND";
+                                const planDirection = isRefund ? "24 months → 12 months" : "12 months → 24 months";
+                                const sourceMethod = inv.paymentMethod === "Razorpay" 
+                                  ? (isRefund ? "Razorpay Refund" : "Razorpay Top-up")
+                                  : (isRefund ? "Manual Refund" : "Manual Top-up");
+                                
+                                return (
+                                  <div
+                                    key={inv.id}
+                                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-700 bg-[#131724] text-xs"
+                                  >
+                                    <div>
+                                      <div className="text-gray-200 font-medium">
+                                        ₹{inv.amount} · <span className={isRefund ? "text-yellow-400" : "text-green-400"}>
+                                          {isRefund ? "REFUND SUCCESS" : "PAYMENT SUCCESS"}
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-400 mt-0.5">Plan change: {planDirection}</div>
+                                      <div className="text-gray-500 mt-0.5">
+                                        {sourceMethod} {inv.reason && `· ${inv.reason}`}
+                                      </div>
+                                      <div className="text-gray-600 text-[10px] mt-0.5">{formatDateTimeDMY(inv.documentDate)}</div>
                                     </div>
-                                    <div className="text-gray-500">{formatDateTimeDMY(inv.documentDate)}</div>
+                                    <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline shrink-0">
+                                      Download PDF
+                                    </button>
                                   </div>
-                                  <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline shrink-0">
-                                    Download PDF
-                                  </button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()}
