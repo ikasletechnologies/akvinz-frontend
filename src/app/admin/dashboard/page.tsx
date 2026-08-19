@@ -1292,6 +1292,7 @@ export default function AdminDashboardPage() {
             <label className="block text-xs text-gray-400 mb-1">From</label>
             <input
               type="date"
+              lang="en-GB"
               value={statsFrom}
               onChange={(e) => setStatsFrom(e.target.value)}
               className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-white text-sm"
@@ -1301,6 +1302,7 @@ export default function AdminDashboardPage() {
             <label className="block text-xs text-gray-400 mb-1">To</label>
             <input
               type="date"
+              lang="en-GB"
               value={statsTo}
               onChange={(e) => setStatsTo(e.target.value)}
               className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-white text-sm"
@@ -2055,6 +2057,7 @@ export default function AdminDashboardPage() {
                         <label className="block text-xs text-gray-400 mb-1">Rent Start Date</label>
                         <input
                           type="date"
+                          lang="en-GB"
                           value={editForm.subscriptionStart}
                           onChange={(e) => {
                             const start = e.target.value;
@@ -2075,6 +2078,7 @@ export default function AdminDashboardPage() {
                         </label>
                         <input
                           type="date"
+                          lang="en-GB"
                           value={editForm.subscriptionEnd}
                           onChange={(e) => setEditForm({ ...editForm, subscriptionEnd: e.target.value })}
                           className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
@@ -2585,6 +2589,7 @@ export default function AdminDashboardPage() {
                                       <label className="block text-xs text-gray-500 mb-1">Date</label>
                                       <input
                                         type="date"
+                                        lang="en-GB"
                                         value={form.eventDate}
                                         onChange={(e) =>
                                           setReturnEventForm((prev) => ({ ...prev, [step.key]: { ...form, eventDate: e.target.value } }))
