@@ -41,6 +41,8 @@ interface Customer {
   bankAccountNumber: string | null;
   planChangeRefundProofUrl: string | null;
   planChangeRazorpayRefundId: string | null;
+  planChangeRefundStatus: string;
+  planChangeRefundAmount: number | null;
   modelName: string | null;
   machineSerialNumber: string | null;
   createdAt: string;
@@ -413,6 +415,12 @@ export default function AdminDashboardPage() {
   const [refundingNow, setRefundingNow] = useState(false);
   const [refundingPlanChangeNow, setRefundingPlanChangeNow] = useState(false);
   const [planChangeRefundInitiated, setPlanChangeRefundInitiated] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [maskedMobile, setMaskedMobile] = useState("");
+  const [requestingOtp, setRequestingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [newPlanDuration, setNewPlanDuration] = useState("");
   const [planChangeAmount, setPlanChangeAmount] = useState("");
   const [planChangeTopUpUrl, setPlanChangeTopUpUrl] = useState("");
@@ -636,6 +644,14 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (activeTab === "drafts") loadDrafts();
   }, [activeTab, loadDrafts]);
+
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpResendCooldown]);
 
   useEffect(() => {
     setPage(1);
@@ -1048,31 +1064,78 @@ export default function AdminDashboardPage() {
   // "Confirm Refund" below is what actually calls Razorpay. Replaces a
   // single click + a generic browser confirm() popup, which is easy to
   // blow through for an action that sends real money.
-  const refundPlanChangeViaRazorpay = async () => {
-    if (!selected) return;
-    const amount = Number(planChangeAmount);
-    if (!amount || amount <= 0) {
-      setError("Enter a valid refund amount above first");
-      return;
-    }
-    setRefundingPlanChangeNow(true);
+  const requestRefundOtp = async () => {
+    if (!selected || !newPlanDuration) return;
+    setRequestingOtp(true);
     setError("");
     try {
-      const res = await adminFetch(`/api/admin/customers/${selected.id}/plan-change-refund`, {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/plan-change/refund/request-otp`, {
         method: "POST",
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ newPlanDuration: Number(newPlanDuration) }),
       });
       const data = await res.json();
       if (data.success) {
+        setMaskedMobile(data.maskedMobile);
+        setOtpSent(true);
+        setOtpResendCooldown(30);
         setSelected(data.customer);
-        setPlanChangeRefundInitiated(false);
       } else {
-        setError(data.message || "Failed to process refund");
+        setError(data.message || "Failed to send OTP");
       }
     } catch {
       setError("Error connecting to server");
     } finally {
+      setRequestingOtp(false);
+    }
+  };
+
+  const verifyRefundOtpAndExecute = async () => {
+    if (!selected || !otpCode) return;
+    setVerifyingOtp(true);
+    setError("");
+    setRefundingPlanChangeNow(true);
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/plan-change/refund/verify-otp`, {
+        method: "POST",
+        body: JSON.stringify({ code: otpCode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelected(data.customer);
+        setOtpSent(false);
+        setOtpCode("");
+      } else {
+        setError(data.message || "OTP verification failed");
+        if (data.customer) {
+          setSelected(data.customer);
+        }
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setVerifyingOtp(false);
       setRefundingPlanChangeNow(false);
+    }
+  };
+
+  const cancelRefundOtp = async () => {
+    if (!selected) return;
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/plan-change/refund/cancel`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelected(data.customer);
+        setOtpSent(false);
+        setOtpCode("");
+        setPlanChangeRefundInitiated(false);
+      } else {
+        setError(data.message || "Failed to cancel OTP");
+      }
+    } catch {
+      setError("Error connecting to server");
     }
   };
 
@@ -2278,11 +2341,13 @@ export default function AdminDashboardPage() {
 
                           {planChangeDifference() < 0 && (
                             <div className="mt-2 space-y-2">
-                              {selected.planChangeRazorpayRefundId ? (
+                              {/* SUCCESS STATE */}
+                              {(selected.planChangeRefundStatus === "REFUND_SUCCESS" || selected.planChangeRazorpayRefundId) ? (
                                 <div className="px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400">
-                                  ✓ ₹{Number(planChangeAmount) || Math.abs(planChangeDifference())} refunded via Razorpay (ID: {selected.planChangeRazorpayRefundId})
+                                  ✓ ₹{selected.planChangeRefundAmount || Math.abs(planChangeDifference())} refunded via Razorpay (ID: {selected.planChangeRazorpayRefundId})
                                 </div>
-                              ) : selected.planChangeRefundProofUrl ? (
+                              ) : /* MANUAL PROOF SUCCESS STATE */
+                              selected.planChangeRefundProofUrl ? (
                                 <div className="border border-green-600/40 bg-green-500/10 rounded-lg p-3 space-y-2">
                                   <div className="text-xs text-green-400 font-medium">✓ Refund proof uploaded</div>
                                   <DocumentChip
@@ -2294,30 +2359,83 @@ export default function AdminDashboardPage() {
                                     onDelete={() => handleDeleteDocument("planChangeRefundProofUrl")}
                                   />
                                 </div>
-                              ) : refundingPlanChangeNow ? (
-                                <div className="px-3 py-2 rounded-lg border border-yellow-600/40 bg-yellow-500/10 text-xs text-yellow-400 animate-pulse text-center">
-                                  Refund processing... Please wait.
+                              ) : /* REFUND PROCESSING STATE */
+                              (selected.planChangeRefundStatus === "REFUND_PROCESSING" || refundingPlanChangeNow) ? (
+                                <div className="border border-yellow-600/40 bg-yellow-500/5 rounded-lg p-3 space-y-2 text-center">
+                                  <div className="text-xs text-yellow-400 font-semibold animate-pulse">✓ OTP Verified</div>
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    ₹{selected.planChangeRefundAmount || Math.abs(planChangeDifference())} refund is being processed via Razorpay.
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">Please do not close this window or retry.</p>
                                 </div>
-                              ) : planChangeRefundInitiated ? (
+                              ) : /* OTP PENDING STATE */
+                              selected.planChangeRefundStatus === "OTP_PENDING" ? (
+                                <div className="border border-yellow-600/40 bg-[#131724] rounded-lg p-3 space-y-3">
+                                  <div className="text-xs font-semibold text-white">Verify Refund Authorization</div>
+                                  <p className="text-xs text-gray-400">
+                                    A verification code has been sent to your registered mobile number ending in <span className="text-white font-medium">{maskedMobile || "••••"}</span>.
+                                  </p>
+                                  <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Enter OTP</label>
+                                    <input
+                                      type="text"
+                                      maxLength={6}
+                                      value={otpCode}
+                                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                                      placeholder="e.g. 123456"
+                                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm tracking-widest text-center text-white"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={verifyRefundOtpAndExecute}
+                                      disabled={verifyingOtp || otpCode.length !== 6}
+                                      className="flex-1 px-3 py-2 text-xs bg-[#f26522] text-white rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-50"
+                                    >
+                                      {verifyingOtp ? "Verifying..." : `Verify & Refund ₹${selected.planChangeRefundAmount || Math.abs(planChangeDifference())}`}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelRefundOtp}
+                                      disabled={verifyingOtp}
+                                      className="px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                  <div className="text-center">
+                                    <button
+                                      type="button"
+                                      disabled={otpResendCooldown > 0 || requestingOtp}
+                                      onClick={requestRefundOtp}
+                                      className="text-xs text-[#f26522] hover:underline disabled:opacity-50"
+                                    >
+                                      {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : "Resend OTP"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : /* CONFIRMATION PANEL STATE */
+                              planChangeRefundInitiated ? (
                                 <div className="border border-yellow-600/40 bg-yellow-500/5 rounded-lg p-3 space-y-2">
                                   <p className="text-xs text-gray-300">
-                                    About to refund <span className="text-white font-semibold">₹{Number(planChangeAmount) || 0}</span> to{" "}
+                                    About to refund <span className="text-white font-semibold">₹{Math.abs(planChangeDifference())}</span> to{" "}
                                     <span className="text-white font-semibold">{selected.fullName}</span> via Razorpay, against their
-                                    original deposit payment. This sends the money immediately &mdash; review the amount above before confirming.
+                                    original deposit payment. This sends the money immediately &mdash; review the amount before confirming.
                                   </p>
                                   <div className="flex gap-2">
                                     <button
                                       type="button"
-                                      onClick={refundPlanChangeViaRazorpay}
-                                      disabled={refundingPlanChangeNow}
+                                      onClick={requestRefundOtp}
+                                      disabled={requestingOtp}
                                       className="flex-1 px-3 py-2 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded-lg text-[#f26522] hover:bg-[#f26522]/20 transition-colors disabled:opacity-50"
                                     >
-                                      Confirm Refund (₹{Number(planChangeAmount) || 0})
+                                      {requestingOtp ? "Requesting OTP..." : `Confirm Refund (₹${Math.abs(planChangeDifference())})`}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setPlanChangeRefundInitiated(false)}
-                                      disabled={refundingPlanChangeNow}
+                                      disabled={requestingOtp}
                                       className="px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
                                     >
                                       Cancel
@@ -2325,6 +2443,7 @@ export default function AdminDashboardPage() {
                                   </div>
                                 </div>
                               ) : (
+                                /* NOT_STARTED / DEFAULT STATE */
                                 <div className="space-y-2">
                                   <button
                                     type="button"
@@ -2351,7 +2470,7 @@ export default function AdminDashboardPage() {
                           )}
 
                           {planChangeDifference() < 0 && (() => {
-                            const blocked = !selected.planChangeRefundProofUrl && !selected.planChangeRazorpayRefundId;
+                            const blocked = !selected.planChangeRefundProofUrl && selected.planChangeRefundStatus !== "REFUND_SUCCESS" && !selected.planChangeRazorpayRefundId;
                             return (
                               <>
                                 <button
