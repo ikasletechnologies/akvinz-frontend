@@ -40,6 +40,7 @@ interface Customer {
   bankIfscCode: string | null;
   bankAccountNumber: string | null;
   planChangeRefundProofUrl: string | null;
+  planChangeRazorpayRefundId: string | null;
   modelName: string | null;
   machineSerialNumber: string | null;
   createdAt: string;
@@ -410,6 +411,7 @@ export default function AdminDashboardPage() {
   const [payoutHistoryLoading, setPayoutHistoryLoading] = useState(false);
   const [payoutHistoryError, setPayoutHistoryError] = useState("");
   const [refundingNow, setRefundingNow] = useState(false);
+  const [refundingPlanChangeNow, setRefundingPlanChangeNow] = useState(false);
   const [newPlanDuration, setNewPlanDuration] = useState("");
   const [planChangeAmount, setPlanChangeAmount] = useState("");
   const [planChangeTopUpUrl, setPlanChangeTopUpUrl] = useState("");
@@ -1036,6 +1038,34 @@ export default function AdminDashboardPage() {
       setError("Error connecting to server");
     } finally {
       setRefundingNow(false);
+    }
+  };
+
+  const refundPlanChangeViaRazorpay = async () => {
+    if (!selected) return;
+    const amount = Number(planChangeAmount);
+    if (!amount || amount <= 0) {
+      setError("Enter a valid refund amount above first");
+      return;
+    }
+    if (!confirm(`Refund ₹${amount} to ${selected.fullName} via Razorpay now? This sends the money immediately to their original payment method.`)) return;
+    setRefundingPlanChangeNow(true);
+    setError("");
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/plan-change-refund`, {
+        method: "POST",
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelected(data.customer);
+      } else {
+        setError(data.message || "Failed to process refund");
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setRefundingPlanChangeNow(false);
     }
   };
 
@@ -2209,18 +2239,35 @@ export default function AdminDashboardPage() {
                           )}
 
                           {planChangeDifference() < 0 && (
-                            <div className="mt-2">
-                              <label className="block text-xs text-gray-400 mb-1">
-                                Proof of Refund Sent &mdash; upload before you can confirm this downgrade
-                              </label>
-                              <DocumentChip
-                                label="Refund Proof"
-                                url={selected.planChangeRefundProofUrl}
-                                uploading={uploadingDocKey === "planChangeRefundProofUrl"}
-                                deleting={deletingDocKey === "planChangeRefundProofUrl"}
-                                onUpload={(file) => handleUploadDocument("planChangeRefundProofUrl", "planChangeRefundProofFile", file)}
-                                onDelete={() => handleDeleteDocument("planChangeRefundProofUrl")}
-                              />
+                            <div className="mt-2 space-y-2">
+                              {selected.planChangeRazorpayRefundId ? (
+                                <div className="px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400">
+                                  Refunded via Razorpay &mdash; ID: {selected.planChangeRazorpayRefundId}
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={refundPlanChangeViaRazorpay}
+                                    disabled={refundingPlanChangeNow}
+                                    className="w-full px-3 py-2 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {refundingPlanChangeNow ? "Refunding..." : `Refund via Razorpay (₹${Math.abs(planChangeDifference())})`}
+                                  </button>
+                                  <p className="text-xs text-gray-500 text-center">or</p>
+                                  <label className="block text-xs text-gray-400 mb-1">
+                                    Proof of Refund Sent &mdash; upload if you refunded manually instead
+                                  </label>
+                                  <DocumentChip
+                                    label="Refund Proof"
+                                    url={selected.planChangeRefundProofUrl}
+                                    uploading={uploadingDocKey === "planChangeRefundProofUrl"}
+                                    deleting={deletingDocKey === "planChangeRefundProofUrl"}
+                                    onUpload={(file) => handleUploadDocument("planChangeRefundProofUrl", "planChangeRefundProofFile", file)}
+                                    onDelete={() => handleDeleteDocument("planChangeRefundProofUrl")}
+                                  />
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -2231,7 +2278,7 @@ export default function AdminDashboardPage() {
                               (r) => r.status === "PAID" && r.planChangeTargetDuration === Number(newPlanDuration)
                             );
                             const blocked =
-                              (isDowngrade && !selected.planChangeRefundProofUrl) ||
+                              (isDowngrade && !selected.planChangeRefundProofUrl && !selected.planChangeRazorpayRefundId) ||
                               (isUpgrade && !hasPaidTopUpLink);
                             return (
                               <>
@@ -2246,7 +2293,7 @@ export default function AdminDashboardPage() {
                                 {blocked && (
                                   <p className="text-xs text-gray-500 mt-1">
                                     {isDowngrade
-                                      ? "Upload proof of the refund above to enable this."
+                                      ? "Refund via Razorpay or upload proof of the refund above to enable this."
                                       : "Mark the top-up link above as paid to enable this."}
                                   </p>
                                 )}
