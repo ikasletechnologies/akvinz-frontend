@@ -39,6 +39,7 @@ interface Customer {
   bankName: string | null;
   bankIfscCode: string | null;
   bankAccountNumber: string | null;
+  customerUpiVpa: string | null;
   planChangeRefundProofUrl: string | null;
   planChangeRazorpayRefundId: string | null;
   planChangeRefundStatus: string;
@@ -953,6 +954,10 @@ export default function AdminDashboardPage() {
     setCopiedTopUpLink(false);
     setPlanChangeRefundInitiated(false);
     setEditingBankDetails(false);
+    setPayoutMethod("bank");
+    // Pre-fill with the VPA captured off this customer's deposit payment (if
+    // they happened to pay via UPI) — the admin can still overwrite it.
+    setPayoutUpiId(customer.customerUpiVpa || "");
     setEditForm({
       paymentStatus: customer.paymentStatus,
       subscriptionStatus: customer.subscriptionStatus,
@@ -2333,7 +2338,11 @@ export default function AdminDashboardPage() {
                                       placeholder="e.g. name@okhdfcbank"
                                       className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
                                     />
-                                    <p className="text-[10px] text-gray-500 mt-1">Ask the customer for this — it isn&apos;t saved to their profile, only used for this payout.</p>
+                                    <p className="text-[10px] text-gray-500 mt-1">
+                                      {selected.customerUpiVpa && payoutUpiId === selected.customerUpiVpa
+                                        ? "Pre-filled from their security deposit payment — verify before sending, or overwrite it."
+                                        : "Ask the customer for this — it isn't saved to their profile, only used for this payout."}
+                                    </p>
                                   </div>
                                 ) : (
                                   <div className="p-3 bg-[#131724]/40 border border-gray-800 rounded-lg space-y-1">
