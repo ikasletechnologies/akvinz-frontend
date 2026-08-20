@@ -452,13 +452,42 @@ export default function AdminDashboardPage() {
   const [editingBankDetails, setEditingBankDetails] = useState(false);
   const [defectImages, setDefectImages] = useState<(File | null)[]>([null, null, null]);
 
-  const [activeTab, setActiveTab] = useState<"customers" | "drafts">("customers");
+  const [activeTab, setActiveTab] = useState<"customers" | "drafts" | "location-changes">("customers");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [draftsTotalPages, setDraftsTotalPages] = useState(1);
   const [draftsPage, setDraftsPage] = useState(1);
   const [draftsSearch, setDraftsSearch] = useState("");
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [copiedDraftId, setCopiedDraftId] = useState("");
+
+  interface LocationChangeRequest {
+    id: string;
+    customerId: string;
+    customer: {
+      fullName: string;
+      mobileNumber: string;
+    };
+    oldFullAddress: string;
+    oldCity: string;
+    oldDistrict: string | null;
+    oldState: string;
+    oldPincode: string;
+    oldResidenceStatus: string;
+    newFullAddress: string;
+    newCity: string;
+    newDistrict: string;
+    newState: string;
+    newPincode: string;
+    newResidenceStatus: string;
+    proofType: string;
+    proofDocUrl: string;
+    reason: string;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    createdAt: string;
+  }
+  const [locationRequests, setLocationRequests] = useState<LocationChangeRequest[]>([]);
+  const [locationRequestsLoading, setLocationRequestsLoading] = useState(false);
+  const [selectedLocationRequest, setSelectedLocationRequest] = useState<LocationChangeRequest | null>(null);
 
   useEffect(() => {
     if (!getAdminToken()) {
@@ -647,6 +676,24 @@ export default function AdminDashboardPage() {
     }
   }, [draftsPage, draftsSearch]);
 
+  const loadLocationRequests = useCallback(async () => {
+    setLocationRequestsLoading(true);
+    setError("");
+    try {
+      const res = await adminFetch("/api/admin/location-change-requests");
+      const data = await res.json();
+      if (data.success) {
+        setLocationRequests(data.requests);
+      } else {
+        setError(data.message || "Failed to load location change requests");
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setLocationRequestsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadStats();
   }, [loadStats]);
@@ -658,6 +705,10 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (activeTab === "drafts") loadDrafts();
   }, [activeTab, loadDrafts]);
+
+  useEffect(() => {
+    if (activeTab === "location-changes") loadLocationRequests();
+  }, [activeTab, loadLocationRequests]);
 
   useEffect(() => {
     if (otpResendCooldown <= 0) return;
@@ -968,6 +1019,27 @@ export default function AdminDashboardPage() {
       setTimeout(() => setCopiedLink(""), 2000);
     } catch {
       setError("Failed to copy link");
+    }
+  };
+
+  const handleReviewLocationRequest = async (id: string, action: "APPROVE" | "REJECT") => {
+    if (!confirm(`Are you sure you want to ${action.toLowerCase()} this location change request?`)) return;
+    try {
+      const res = await adminFetch(`/api/admin/location-change-requests/${id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Request ${action.toLowerCase()}d successfully`);
+        setSelectedLocationRequest(null);
+        loadLocationRequests();
+        loadCustomers();
+      } else {
+        alert(data.message || `Failed to ${action.toLowerCase()} request`);
+      }
+    } catch {
+      alert("Error connecting to server");
     }
   };
 
@@ -1591,6 +1663,12 @@ export default function AdminDashboardPage() {
           >
             Drafts
           </button>
+          <button
+            onClick={() => setActiveTab("location-changes")}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === "location-changes" ? "bg-[#f26522] text-white" : "bg-[#1a1f30] border border-gray-700/50 text-gray-400 hover:text-white"}`}
+          >
+            Location Changes
+          </button>
         </div>
 
         {activeTab === "customers" && (
@@ -1861,7 +1939,156 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+
+        {activeTab === "location-changes" && (
+          <div className="bg-[#1a1f30] border border-gray-700/50 rounded-2xl p-4 sm:p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 border-b border-gray-700/50">
+                    <th className="py-2 pr-4 font-medium">Customer</th>
+                    <th className="py-2 pr-4 font-medium">Mobile</th>
+                    <th className="py-2 pr-4 font-medium">Residence Status</th>
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">Submitted At</th>
+                    <th className="py-2 pr-4 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {locationRequestsLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-400">Loading...</td>
+                    </tr>
+                  ) : locationRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-400">No requests found</td>
+                    </tr>
+                  ) : (
+                    locationRequests.map((r) => (
+                      <tr key={r.id} className="border-b border-gray-800 hover:bg-white/5">
+                        <td className="py-3 pr-4">{r.customer?.fullName || <span className="text-gray-500">-</span>}</td>
+                        <td className="py-3 pr-4 text-gray-300">{r.customer?.mobileNumber || "-"}</td>
+                        <td className="py-3 pr-4 text-gray-300 capitalize">{r.newResidenceStatus === "rent" ? "Rent House" : "Permanent House"}</td>
+                        <td className="py-3 pr-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                            r.status === "APPROVED" ? "bg-green-500/20 text-green-400" :
+                            r.status === "REJECTED" ? "bg-red-500/20 text-red-400" :
+                            "bg-yellow-500/20 text-yellow-400"
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-gray-400">{formatDateTimeDMY(r.createdAt)}</td>
+                        <td className="py-3 pr-4 text-right">
+                          <button
+                            onClick={() => setSelectedLocationRequest(r)}
+                            className="text-[#f26522] hover:underline"
+                          >
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
+
+      {selectedLocationRequest && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-50">
+          <div className="bg-[#1a1f30] border border-gray-700/50 rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+              <h3 className="text-lg font-bold text-white">LOCATION CHANGE REQUEST</h3>
+              <button
+                onClick={() => setSelectedLocationRequest(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer</span>
+                <p className="text-white font-medium text-base">{selectedLocationRequest.customer?.fullName}</p>
+                <p className="text-gray-400 text-xs">{selectedLocationRequest.customer?.mobileNumber}</p>
+              </div>
+
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Current Address</span>
+                <p className="text-gray-300 bg-[#131724] p-3 rounded-lg border border-gray-800/80 whitespace-pre-wrap">{selectedLocationRequest.oldFullAddress || "[existing address]"}</p>
+              </div>
+
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">New Address</span>
+                <div className="text-gray-300 bg-[#131724] p-3 rounded-lg border border-gray-800/80 space-y-1">
+                  <p className="font-medium">{selectedLocationRequest.newFullAddress}</p>
+                  <p className="text-xs text-gray-400">{selectedLocationRequest.newCity}, {selectedLocationRequest.newDistrict}, {selectedLocationRequest.newState} - {selectedLocationRequest.newPincode}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Residence Status</span>
+                  <p className="text-gray-300 font-medium capitalize">{selectedLocationRequest.newResidenceStatus === "rent" ? "Rent House" : "Permanent House"}</p>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Address Proof ({selectedLocationRequest.proofType})</span>
+                  <a
+                    href={selectedLocationRequest.proofDocUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-[#f26522] hover:underline font-medium text-sm"
+                  >
+                    View Document
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Reason for Location Change</span>
+                <p className="text-gray-300 bg-[#131724] p-3 rounded-lg border border-gray-800/80 italic">"{selectedLocationRequest.reason}"</p>
+              </div>
+
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Status</span>
+                <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold mt-1 ${
+                  selectedLocationRequest.status === "APPROVED" ? "bg-green-500/20 text-green-400" :
+                  selectedLocationRequest.status === "REJECTED" ? "bg-red-500/20 text-red-400" :
+                  "bg-yellow-500/20 text-yellow-400"
+                }`}>
+                  {selectedLocationRequest.status}
+                </span>
+              </div>
+            </div>
+
+            {selectedLocationRequest.status === "PENDING" && (
+              <div className="px-6 py-4 bg-[#131724] border-t border-gray-800 flex justify-end gap-3">
+                <button
+                  onClick={() => handleReviewLocationRequest(selectedLocationRequest.id, "REJECT")}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors text-sm"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleReviewLocationRequest(selectedLocationRequest.id, "APPROVE")}
+                  className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors text-sm"
+                >
+                  Approve
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-50">
@@ -1933,6 +2160,13 @@ export default function AdminDashboardPage() {
                         className="px-3 py-1.5 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
                       >
                         {copiedLink === "bankDetails" ? "Copied!" : "Copy Bank Details Link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyLink("/locationChangeForm", selected.mobileNumber, "locationChange")}
+                        className="px-3 py-1.5 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                      >
+                        {copiedLink === "locationChange" ? "Copied!" : "Copy Location Change Link"}
                       </button>
                       {selected.paymentStatus === "PENDING_REFUND" && (
                         <button
