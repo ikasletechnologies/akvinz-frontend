@@ -2497,6 +2497,7 @@ export default function AdminDashboardPage() {
                             <input
                               type="number"
                               min="1"
+                              step="0.01"
                               value={paymentLinkAmount}
                               onChange={(e) => setPaymentLinkAmount(e.target.value)}
                               placeholder="e.g. 499"
