@@ -46,6 +46,15 @@ const actions = [
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M2.25 21h19.5M4.5 21V9.75M9.75 21V9.75M14.25 21V9.75M19.5 21V9.75M2.25 9.75L12 3l9.75 6.75M4.5 9.75h15" />
     ),
   },
+  {
+    href: "/locationChangeForm",
+    title: "Location Change",
+    description: "Registered customers can request an update to their service address.",
+    accent: "text-[#f26522] bg-[#f26522]/10",
+    icon: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    ),
+  },
 ];
 
 export default function Home() {
