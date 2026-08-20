@@ -127,6 +127,16 @@ export default function ReturnFormPage() {
       const data = await res.json();
       if (data.success) {
         setCustomer(data.customer);
+        // Pre-fill from bank details they already have on file (e.g. via
+        // bankDetailsForm), so they aren't retyping the same thing —
+        // they can still edit these if the refund should go elsewhere.
+        if (data.customer.bankAccountHolderName && data.customer.bankIfscCode && data.customer.bankAccountNumber) {
+          setBankAccountHolderName(data.customer.bankAccountHolderName);
+          setBankName(data.customer.bankName || "");
+          setBankIfscCode(data.customer.bankIfscCode);
+          setBankAccountNumber(data.customer.bankAccountNumber);
+          setBankAccountNumberConfirm(data.customer.bankAccountNumber);
+        }
       } else {
         alert("No registration found for this mobile number. Please register first.");
       }
@@ -329,6 +339,11 @@ export default function ReturnFormPage() {
               <p className="text-xs text-gray-500 mb-4">
                 Your refundable security deposit will be sent to this account once the returned product is inspected.
               </p>
+              {customer?.bankAccountNumber && bankAccountNumber === customer.bankAccountNumber && (
+                <p className="text-xs text-[#f26522] mb-4 -mt-2">
+                  Pre-filled from the bank details you already have on file — change these if the refund should go elsewhere.
+                </p>
+              )}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">Account Holder Name</label>
