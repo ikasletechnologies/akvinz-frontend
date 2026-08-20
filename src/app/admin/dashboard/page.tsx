@@ -428,6 +428,8 @@ export default function AdminDashboardPage() {
   const [moneyPayoutAmount, setMoneyPayoutAmount] = useState("");
   const [moneyPayoutReason, setMoneyPayoutReason] = useState("");
   const [moneyPayoutReasonOther, setMoneyPayoutReasonOther] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState<"bank" | "upi">("bank");
+  const [payoutUpiId, setPayoutUpiId] = useState("");
   const [activePayoutTx, setActivePayoutTx] = useState<any | null>(null);
   const [payoutOtpCode, setPayoutOtpCode] = useState("");
   const [payoutMaskedMobile, setPayoutMaskedMobile] = useState("");
@@ -1291,6 +1293,10 @@ export default function AdminDashboardPage() {
       setError("Please enter a reason for the payout.");
       return;
     }
+    if (payoutMethod === "upi" && !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(payoutUpiId.trim())) {
+      setError("Enter a valid UPI ID (e.g. name@bank).");
+      return;
+    }
 
     setRequestingPayoutOtp(true);
     setError("");
@@ -1299,7 +1305,9 @@ export default function AdminDashboardPage() {
         method: "POST",
         body: JSON.stringify({
           amountPaise: Math.round(amountRs * 100),
-          reason: finalReason
+          reason: finalReason,
+          payoutMethod,
+          upiId: payoutMethod === "upi" ? payoutUpiId.trim() : undefined
         })
       });
       const data = await res.json();
@@ -1366,6 +1374,8 @@ export default function AdminDashboardPage() {
         setMoneyPayoutAmount("");
         setMoneyPayoutReason("");
         setMoneyPayoutReasonOther("");
+        setPayoutMethod("bank");
+        setPayoutUpiId("");
         setPayoutInitiatedStep(false);
       } else {
         setError(data.message || "Failed to cancel payout");
@@ -2288,22 +2298,65 @@ export default function AdminDashboardPage() {
                                     />
                                   </div>
                                 )}
-                                <div className="p-3 bg-[#131724]/40 border border-gray-800 rounded-lg space-y-1">
-                                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Recipient Details</div>
-                                  {hasBankDetails ? (
-                                    <div className="text-xs text-gray-300">
-                                      <span className="font-semibold text-white">{bankAccountHolderName}</span> &middot; {bankName} ({maskedAccount})
-                                    </div>
-                                  ) : (
-                                    <div className="text-xs text-red-400 font-medium">
-                                      ⚠️ Missing bank details. Send customer the bankDetailsForm link first.
-                                    </div>
-                                  )}
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-1">Pay via</label>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPayoutMethod("bank")}
+                                      className={`flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ${payoutMethod === "bank"
+                                        ? "bg-[#f26522]/10 border-[#f26522]/40 text-[#f26522]"
+                                        : "bg-[#131724] border-gray-700 text-gray-300 hover:text-white hover:border-gray-500"
+                                        }`}
+                                    >
+                                      Bank Account
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPayoutMethod("upi")}
+                                      className={`flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ${payoutMethod === "upi"
+                                        ? "bg-[#f26522]/10 border-[#f26522]/40 text-[#f26522]"
+                                        : "bg-[#131724] border-gray-700 text-gray-300 hover:text-white hover:border-gray-500"
+                                        }`}
+                                    >
+                                      UPI ID
+                                    </button>
+                                  </div>
                                 </div>
+                                {payoutMethod === "upi" ? (
+                                  <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Customer&apos;s UPI ID</label>
+                                    <input
+                                      type="text"
+                                      value={payoutUpiId}
+                                      onChange={(e) => setPayoutUpiId(e.target.value)}
+                                      placeholder="e.g. name@okhdfcbank"
+                                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1">Ask the customer for this — it isn&apos;t saved to their profile, only used for this payout.</p>
+                                  </div>
+                                ) : (
+                                  <div className="p-3 bg-[#131724]/40 border border-gray-800 rounded-lg space-y-1">
+                                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Recipient Details</div>
+                                    {hasBankDetails ? (
+                                      <div className="text-xs text-gray-300">
+                                        <span className="font-semibold text-white">{bankAccountHolderName}</span> &middot; {bankName} ({maskedAccount})
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-red-400 font-medium">
+                                        ⚠️ Missing bank details. Send customer the bankDetailsForm link, or switch to &quot;UPI ID&quot; above to pay without them.
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => setPayoutInitiatedStep(true)}
-                                  disabled={!hasBankDetails || !moneyPayoutAmount || !moneyPayoutReason}
+                                  disabled={
+                                    !moneyPayoutAmount ||
+                                    !moneyPayoutReason ||
+                                    (payoutMethod === "bank" ? !hasBankDetails : !payoutUpiId.trim())
+                                  }
                                   className="w-full px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-30"
                                 >
                                   Initiate Payout
@@ -2323,8 +2376,8 @@ export default function AdminDashboardPage() {
                                 </p>
                                 <div className="text-xs space-y-1 bg-[#0b0d16] p-3 rounded-lg border border-gray-800">
                                   <div><span className="text-gray-500">Reason:</span> <span className="text-gray-200">{moneyPayoutReason === "Other" ? moneyPayoutReasonOther : moneyPayoutReason}</span></div>
-                                  <div><span className="text-gray-500">Method:</span> <span className="text-gray-200 font-medium text-yellow-500">Razorpay Payout</span></div>
-                                  <div><span className="text-gray-500">Recipient:</span> <span className="text-gray-200">{bankAccountHolderName} &middot; {maskedAccount}</span></div>
+                                  <div><span className="text-gray-500">Method:</span> <span className="text-gray-200 font-medium text-yellow-500">Razorpay Payout {payoutMethod === "upi" ? "(UPI)" : "(Bank)"}</span></div>
+                                  <div><span className="text-gray-500">Recipient:</span> <span className="text-gray-200">{payoutMethod === "upi" ? payoutUpiId.trim() : `${bankAccountHolderName} · ${maskedAccount}`}</span></div>
                                 </div>
                                 <p className="text-[10px] text-gray-500">
                                   This will transfer real money immediately from the company's RazorpayX business payout account.
@@ -2420,6 +2473,8 @@ export default function AdminDashboardPage() {
                                     setMoneyPayoutAmount("");
                                     setMoneyPayoutReason("");
                                     setMoneyPayoutReasonOther("");
+                                    setPayoutMethod("bank");
+                                    setPayoutUpiId("");
                                   }}
                                   className="w-full mt-2 px-3 py-1.5 text-xs bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
                                 >
@@ -2450,6 +2505,8 @@ export default function AdminDashboardPage() {
                                     setMoneyPayoutAmount("");
                                     setMoneyPayoutReason("");
                                     setMoneyPayoutReasonOther("");
+                                    setPayoutMethod("bank");
+                                    setPayoutUpiId("");
                                   }}
                                   className="w-full px-3 py-2 text-xs bg-green-600/20 border border-green-600/40 rounded-lg text-green-400 hover:bg-green-600/30 transition-colors"
                                 >
@@ -2477,6 +2534,8 @@ export default function AdminDashboardPage() {
                                     setMoneyPayoutAmount("");
                                     setMoneyPayoutReason("");
                                     setMoneyPayoutReasonOther("");
+                                    setPayoutMethod("bank");
+                                    setPayoutUpiId("");
                                   }}
                                   className="w-full px-3 py-2 text-xs bg-red-600/20 border border-red-600/40 rounded-lg text-red-400 hover:bg-red-600/30 transition-colors"
                                 >
