@@ -431,6 +431,8 @@ export default function AdminDashboardPage() {
   const [moneyPayoutReasonOther, setMoneyPayoutReasonOther] = useState("");
   const [payoutMethod, setPayoutMethod] = useState<"bank" | "upi">("bank");
   const [payoutUpiId, setPayoutUpiId] = useState("");
+  const [payoutUpiSource, setPayoutUpiSource] = useState<"captured" | "manual">("manual");
+  const [upiLookupLoading, setUpiLookupLoading] = useState(false);
   const [activePayoutTx, setActivePayoutTx] = useState<any | null>(null);
   const [payoutOtpCode, setPayoutOtpCode] = useState("");
   const [payoutMaskedMobile, setPayoutMaskedMobile] = useState("");
@@ -956,8 +958,11 @@ export default function AdminDashboardPage() {
     setEditingBankDetails(false);
     setPayoutMethod("bank");
     // Pre-fill with the VPA captured off this customer's deposit payment (if
-    // they happened to pay via UPI) — the admin can still overwrite it.
+    // they happened to pay via UPI) — the admin can still overwrite it. For
+    // customers who registered before this capture existed, the "UPI ID" tab
+    // triggers a live lookup instead (see selectUpiPayoutMethod below).
     setPayoutUpiId(customer.customerUpiVpa || "");
+    setPayoutUpiSource(customer.customerUpiVpa ? "captured" : "manual");
     setEditForm({
       paymentStatus: customer.paymentStatus,
       subscriptionStatus: customer.subscriptionStatus,
@@ -1283,6 +1288,28 @@ export default function AdminDashboardPage() {
       }
     } catch {
       setError("Error connecting to server");
+    }
+  };
+
+  // Switches the "Pay Customer" form to UPI. If we don't already have a VPA
+  // for this customer, checks Razorpay's record of their original deposit
+  // payment — this works even for customers who registered before VPA
+  // capture existed, since razorpayPaymentId has always been stored.
+  const selectUpiPayoutMethod = async () => {
+    setPayoutMethod("upi");
+    if (payoutUpiId || !selected) return;
+    setUpiLookupLoading(true);
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/upi-vpa`);
+      const data = await res.json();
+      if (data.success && data.upiVpa) {
+        setPayoutUpiId(data.upiVpa);
+        setPayoutUpiSource("captured");
+      }
+    } catch {
+      // Not fatal — admin can still type the UPI ID in manually.
+    } finally {
+      setUpiLookupLoading(false);
     }
   };
 
@@ -2318,7 +2345,7 @@ export default function AdminDashboardPage() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => setPayoutMethod("upi")}
+                                      onClick={selectUpiPayoutMethod}
                                       className={`flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ${payoutMethod === "upi"
                                         ? "bg-[#f26522]/10 border-[#f26522]/40 text-[#f26522]"
                                         : "bg-[#131724] border-gray-700 text-gray-300 hover:text-white hover:border-gray-500"
@@ -2334,13 +2361,19 @@ export default function AdminDashboardPage() {
                                     <input
                                       type="text"
                                       value={payoutUpiId}
-                                      onChange={(e) => setPayoutUpiId(e.target.value)}
-                                      placeholder="e.g. name@okhdfcbank"
-                                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                                      onChange={(e) => {
+                                        setPayoutUpiId(e.target.value);
+                                        setPayoutUpiSource("manual");
+                                      }}
+                                      placeholder={upiLookupLoading ? "Checking their deposit payment..." : "e.g. name@okhdfcbank"}
+                                      disabled={upiLookupLoading}
+                                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white disabled:opacity-50"
                                     />
                                     <p className="text-[10px] text-gray-500 mt-1">
-                                      {selected.customerUpiVpa && payoutUpiId === selected.customerUpiVpa
-                                        ? "Pre-filled from their security deposit payment — verify before sending, or overwrite it."
+                                      {upiLookupLoading
+                                        ? "Checking Razorpay for the UPI ID used on their security deposit payment..."
+                                        : payoutUpiSource === "captured" && payoutUpiId
+                                        ? "Found on their security deposit payment — verify before sending, or overwrite it."
                                         : "Ask the customer for this — it isn't saved to their profile, only used for this payout."}
                                     </p>
                                   </div>
@@ -2364,6 +2397,7 @@ export default function AdminDashboardPage() {
                                   disabled={
                                     !moneyPayoutAmount ||
                                     !moneyPayoutReason ||
+                                    upiLookupLoading ||
                                     (payoutMethod === "bank" ? !hasBankDetails : !payoutUpiId.trim())
                                   }
                                   className="w-full px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-30"
