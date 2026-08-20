@@ -82,6 +82,7 @@ interface Invoice {
 interface PaymentLinkRecord {
   id: string;
   amount: number;
+  reason: string | null;
   shortUrl: string;
   expireBy: string;
   status: string;
@@ -347,6 +348,7 @@ function StatusBadge({ status }: { status: string }) {
     ACTIVE: "bg-green-500/20 text-green-400",
     PENDING: "bg-yellow-500/20 text-yellow-400",
     PENDING_DUE: "bg-yellow-500/20 text-yellow-400",
+    PAUSED: "bg-yellow-500/20 text-yellow-400",
     INACTIVE: "bg-gray-500/20 text-gray-400",
     FAILED: "bg-red-500/20 text-red-400",
     CANCELLED: "bg-red-500/20 text-red-400",
@@ -396,6 +398,8 @@ export default function AdminDashboardPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [copiedLink, setCopiedLink] = useState("");
   const [paymentLinkAmount, setPaymentLinkAmount] = useState("");
+  const [paymentLinkReason, setPaymentLinkReason] = useState("");
+  const [paymentLinkReasonOther, setPaymentLinkReasonOther] = useState("");
   const [paymentLinkUrl, setPaymentLinkUrl] = useState("");
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
@@ -982,6 +986,18 @@ export default function AdminDashboardPage() {
       bankIfscCode: customer.bankIfscCode || "",
       bankAccountNumber: customer.bankAccountNumber || "",
     });
+
+    // The row above comes from the cached list, which can be stale — e.g.
+    // autopayStatus only updates here via a Razorpay webhook, so a customer
+    // who paused/resumed autopay after the list last loaded would still show
+    // the old badge. Refresh it in the background so the panel corrects
+    // itself without the admin having to reload the whole page.
+    adminFetch(`/api/admin/customers/${customer.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setSelected((prev) => (prev && prev.id === customer.id ? data.customer : prev));
+      })
+      .catch(() => {});
   };
 
   const handleSave = async () => {
@@ -1050,17 +1066,24 @@ export default function AdminDashboardPage() {
       setError("Enter a valid amount");
       return;
     }
+    const reason = paymentLinkReason === "Other" ? paymentLinkReasonOther.trim() : paymentLinkReason;
+    if (!reason) {
+      setError("Enter a reason");
+      return;
+    }
     setGeneratingPaymentLink(true);
     setCopiedPaymentLink(false);
     try {
       const res = await adminFetch(`/api/admin/customers/${selected.id}/payment-link`, {
         method: "POST",
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, reason }),
       });
       const data = await res.json();
       if (data.success) {
         setPaymentLinkUrl(data.shortUrl);
         setPaymentLinkAmount("");
+        setPaymentLinkReason("");
+        setPaymentLinkReasonOther("");
         loadPaymentLinkHistory(selected.id);
       } else {
         setError(data.message || "Failed to generate payment link");
@@ -2468,20 +2491,56 @@ export default function AdminDashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            value={paymentLinkAmount}
-                            onChange={(e) => setPaymentLinkAmount(e.target.value)}
-                            placeholder="e.g. 499"
-                            className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
-                          />
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Amount (₹)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={paymentLinkAmount}
+                              onChange={(e) => setPaymentLinkAmount(e.target.value)}
+                              placeholder="e.g. 499"
+                              className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                            <select
+                              value={paymentLinkReason}
+                              onChange={(e) => setPaymentLinkReason(e.target.value)}
+                              className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                            >
+                              <option value="">-- Select Reason --</option>
+                              <option value="Monthly Rent">Monthly Rent</option>
+                              <option value="Pending Due">Pending Due</option>
+                              <option value="Security Deposit">Security Deposit</option>
+                              <option value="Late Fee">Late Fee</option>
+                              <option value="Damage Charges">Damage Charges</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          {paymentLinkReason === "Other" && (
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Custom Reason</label>
+                              <input
+                                type="text"
+                                value={paymentLinkReasonOther}
+                                onChange={(e) => setPaymentLinkReasonOther(e.target.value)}
+                                placeholder="Enter custom reason"
+                                className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-white"
+                              />
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={generatePaymentLink}
-                            disabled={generatingPaymentLink}
-                            className="px-3 py-2 text-xs whitespace-nowrap bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                            disabled={
+                              generatingPaymentLink ||
+                              !paymentLinkAmount ||
+                              !paymentLinkReason ||
+                              (paymentLinkReason === "Other" && !paymentLinkReasonOther.trim())
+                            }
+                            className="w-full px-3 py-2 text-xs bg-[#f26522] text-white font-medium rounded-lg hover:bg-[#d85418] transition-colors disabled:opacity-30"
                           >
                             {generatingPaymentLink ? "Generating..." : "Generate Payment Link"}
                           </button>
