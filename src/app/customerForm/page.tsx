@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { API_URL, downloadFile } from "@/lib/api";
 import TermsContent from "./TermsContent";
 
@@ -96,13 +96,21 @@ export default function CustomerFormPage() {
       .finally(() => setIsResumingDraft(false));
   }, []);
 
+  const lastCheckedEmailRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!draftId) return;
     const hasData = fullName || mobileNumber || email || addressLine1 || addressLine2 || city || stateName || pincode;
     if (!hasData) return;
 
-    if (isValidEmailFormat) setCheckingEmail(true);
-    else setCheckingEmail(false);
+    // Only show the "checking email" spinner when the email itself changed —
+    // this effect also re-fires (autosave) on every other field edit
+    // (address, city, etc.), which shouldn't touch the email status UI.
+    const emailChanged = email !== lastCheckedEmailRef.current;
+    if (emailChanged) {
+      if (isValidEmailFormat) setCheckingEmail(true);
+      else setCheckingEmail(false);
+    }
 
     const timer = setTimeout(() => {
       fetch(`${API_URL}/customer/draft`, {
@@ -125,6 +133,7 @@ export default function CustomerFormPage() {
       })
         .then((res) => res.json())
         .then((data) => {
+          lastCheckedEmailRef.current = email;
           setCheckingEmail(false);
           if (data.code === "CUSTOMER_EXISTS") {
             setMobileAlreadyRegistered(true);
@@ -145,7 +154,10 @@ export default function CustomerFormPage() {
             localStorage.setItem("akvinz_draft_id", data.resumedDraftId);
           }
         })
-        .catch(() => { setCheckingEmail(false); });
+        .catch(() => {
+          lastCheckedEmailRef.current = email;
+          setCheckingEmail(false);
+        });
     }, 800);
 
     return () => clearTimeout(timer);
