@@ -26,7 +26,7 @@ export default function LocationChangeFormPage() {
 
   // Step 3 Form States
   const permanentDocOptions = ["EB Bill", "Gas Bill", "House Tax Bill"];
-  const rentDocOptions = ["Rental Agreement", "Student ID", "Working Staff ID"];
+  const rentDocOptions = ["Rental Agreement", "Student ID", "Employee ID"];
   const [proofType, setProofType] = useState(rentDocOptions[0]);
   const [proofFile, setProofFile] = useState<File | null>(null);
 
@@ -341,7 +341,7 @@ export default function LocationChangeFormPage() {
         {step === 3 && (
           <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm max-w-xl mx-auto space-y-6">
             <h2 className="text-xl font-semibold border-b border-gray-800 pb-3">New Address Proof</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <span className="block text-sm text-gray-300 mb-2">Select Proof Type *</span>
@@ -405,7 +405,7 @@ export default function LocationChangeFormPage() {
         {step === 4 && (
           <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm max-w-xl mx-auto space-y-6">
             <h2 className="text-xl font-semibold border-b border-gray-800 pb-3">Reason for Location Change</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-300 mb-1">Reason *</label>

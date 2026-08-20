@@ -5,7 +5,7 @@ import TermsContent from "./TermsContent";
 
 export default function CustomerFormPage() {
   const permanentDocOptions = ["EB Bill", "Gas Bill", "House Tax Bill"];
-  const rentDocOptions = ["Rental Agreement", "Student ID", "Working Staff ID"];
+  const rentDocOptions = ["Rental Agreement", "Student ID", "Employee ID"];
 
   const [openContactCard, setOpenContactCard] = useState<"call" | "email" | null>(null);
   const [step, setStep] = useState(1);
