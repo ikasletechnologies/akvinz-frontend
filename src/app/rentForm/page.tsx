@@ -19,6 +19,8 @@ export default function RentalFormPage() {
   const [invoiceId, setInvoiceId] = useState("");
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState("");
+  const [isSettingUpAutopay, setIsSettingUpAutopay] = useState(false);
+  const [autopayJustEnabled, setAutopayJustEnabled] = useState(false);
   const [assetTermsAccepted, setAssetTermsAccepted] = useState(false);
   const [assetTermsExpanded, setAssetTermsExpanded] = useState(false);
 
@@ -131,6 +133,7 @@ export default function RentalFormPage() {
       return;
     }
     setIsProcessingPayment(true);
+    setAutopayJustEnabled(false);
     const isLoaded = await loadRazorpayScript();
 
     if (!isLoaded) {
@@ -215,6 +218,109 @@ export default function RentalFormPage() {
       alert("Error initiating payment");
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  // Sets up UPI Autopay (or card/NACH e-mandate) for future rent — the
+  // mandate authorization itself is this cycle's charge, so this replaces
+  // handlePayment for this visit rather than running alongside it. Every
+  // charge after this one happens automatically via Razorpay, with no
+  // further action needed from the customer.
+  const handleSetupAutopay = async () => {
+    if (!assetTermsAccepted) {
+      alert("Please accept the Asset Acceptance & Terms above before continuing.");
+      return;
+    }
+    setIsSettingUpAutopay(true);
+    setAutopayJustEnabled(false);
+    const isLoaded = await loadRazorpayScript();
+
+    if (!isLoaded) {
+      alert("Razorpay SDK failed to load. Are you online?");
+      setIsSettingUpAutopay(false);
+      return;
+    }
+
+    try {
+      const amount = getPrice();
+
+      const res = await fetch(`${API_URL}/subscription/autopay/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: customer.id,
+          rentalPlanDuration: parseInt(rentalPlanDuration),
+          rentalAmount: amount,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert("Failed to set up autopay: " + data.message);
+        setIsSettingUpAutopay(false);
+        return;
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        subscription_id: data.subscriptionId,
+        recurring: 1,
+        name: "Akvinz",
+        description: `Rental Autopay - ${rentalPlanDuration} Months Subscription`,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch(`${API_URL}/subscription/autopay/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                customerId: customer.id,
+                rentalPlanDuration: parseInt(rentalPlanDuration),
+                rentalAmount: amount,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              if (verifyData.invoiceId) {
+                setInvoiceId(verifyData.invoiceId);
+                downloadFile(`${API_URL}/customer/${customer.id}/invoices/${verifyData.invoiceId}/pdf`).catch((e) =>
+                  console.error("Receipt download failed:", e)
+                );
+              }
+              setAutopayJustEnabled(true);
+              setStep(3);
+            } else {
+              alert("Autopay verification failed!");
+            }
+          } catch (e) {
+            alert("Error verifying autopay setup.");
+          }
+        },
+        prefill: {
+          name: customer?.fullName,
+          contact: customer?.mobileNumber,
+          email: customer?.email
+        },
+        theme: {
+          color: "#f26522"
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+
+      paymentObject.on('payment.failed', function (response: any) {
+        alert("Autopay setup failed: " + response.error.description);
+      });
+
+    } catch (e) {
+      alert("Error setting up autopay");
+    } finally {
+      setIsSettingUpAutopay(false);
     }
   };
 
@@ -455,18 +561,29 @@ export default function RentalFormPage() {
               <div className="pt-2 space-y-3">
                 <button
                   type="button"
-                  onClick={handlePayment}
-                  disabled={isProcessingPayment || !assetTermsAccepted}
+                  onClick={handleSetupAutopay}
+                  disabled={isSettingUpAutopay || isProcessingPayment || !assetTermsAccepted}
                   className="w-full bg-[#f26522] hover:bg-[#e05a1e] text-white font-semibold py-4 px-4 rounded-xl shadow-lg shadow-[#f26522]/20 flex justify-center items-center gap-2 transition-all disabled:opacity-50"
                 >
-                  <span className="text-lg">{isProcessingPayment ? "Processing..." : `Pay ₹${getPrice()} This Month`}</span>
-                  {!isProcessingPayment && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>}
+                  <span className="text-lg">{isSettingUpAutopay ? "Setting up..." : `Set up Autopay — ₹${getPrice()}/mo`}</span>
+                  {!isSettingUpAutopay && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>}
                 </button>
                 {!assetTermsAccepted && (
                   <p className="text-center text-xs text-yellow-400">
                     Please accept the Asset Acceptance &amp; Terms above before continuing.
                   </p>
                 )}
+                <p className="text-center text-xs text-gray-500">
+                  Authorize once via GPay, PhonePe, Paytm, any UPI app, or card — future months are charged automatically. Covers this month too.
+                </p>
+                <button
+                  type="button"
+                  onClick={handlePayment}
+                  disabled={isProcessingPayment || isSettingUpAutopay || !assetTermsAccepted}
+                  className="w-full bg-transparent hover:bg-white/5 text-gray-300 font-medium py-3 px-4 rounded-xl border border-gray-700 flex justify-center items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isProcessingPayment ? "Processing..." : `Pay ₹${getPrice()} this month only`}
+                </button>
                 <div className="mt-2 flex items-center justify-center gap-2 text-green-500">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                   <span className="text-xs font-medium uppercase tracking-wider">Secured by Razorpay</span>
@@ -481,10 +598,12 @@ export default function RentalFormPage() {
             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-4">Payment Successful!</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">{autopayJustEnabled ? "Autopay Enabled!" : "Payment Successful!"}</h2>
             <p className="text-gray-400 mb-8 leading-relaxed">
-              Your rent has been paid. Your 30-day billing cycle starts right now ({getTodayDate()}) and your next
-              payment will be due on <strong className="text-white">{getNextMonthDate()}</strong>.
+              {autopayJustEnabled
+                ? <>Your rent is now on autopay, starting today ({getTodayDate()}). It will be charged automatically each month — your next charge will be around <strong className="text-white">{getNextMonthDate()}</strong>, no action needed from you.</>
+                : <>Your rent has been paid. Your 30-day billing cycle starts right now ({getTodayDate()}) and your next payment will be due on <strong className="text-white">{getNextMonthDate()}</strong>.</>
+              }
             </p>
             {receiptError && <p className="text-red-400 text-sm mb-4">{receiptError}</p>}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
