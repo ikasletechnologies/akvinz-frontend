@@ -1251,6 +1251,63 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // A separate path from recordPayout/createPayout's other uses: recording a
+  // manual refund here is specifically for clearing a pending security-
+  // deposit refund, so it also flips paymentStatus to REFUNDED afterward —
+  // mirroring what the Razorpay "Refund Now" button does — instead of
+  // leaving the customer stuck showing PENDING_REFUND.
+  const recordManualRefundPayout = async () => {
+    if (!selected) return;
+    const amount = Number(payoutAmount);
+    if (!amount || amount <= 0) {
+      setError("Enter a valid amount");
+      return;
+    }
+    if (!payoutReason.trim()) {
+      setError("Enter a reason");
+      return;
+    }
+    if (!payoutProofFile) {
+      setError("Attach payment proof before recording");
+      return;
+    }
+    setRecordingPayout(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("amount", String(amount));
+      body.append("reason", payoutReason.trim());
+      body.append("proofFile", payoutProofFile);
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/payout`, { method: "POST", body });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to record payment");
+        return;
+      }
+      setPayoutAmount("");
+      setPayoutReason("");
+      setPayoutProofFile(null);
+      loadPayoutHistory(selected.id);
+      loadInvoices(selected.id);
+
+      if (selected.paymentStatus === "PENDING_REFUND") {
+        const updateRes = await adminFetch(`/api/admin/customers/${selected.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ paymentStatus: "REFUNDED" }),
+        });
+        const updateData = await updateRes.json();
+        if (updateData.success) {
+          setSelected(updateData.customer);
+          loadCustomers();
+        }
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setRecordingPayout(false);
+    }
+  };
+
   // Two-step on purpose: "Initiate" just reveals a review panel (nothing
   // moves yet) so the admin sees exactly who/how much before committing —
   // "Confirm Refund" below is what actually calls Razorpay. Replaces a
@@ -3478,6 +3535,86 @@ export default function AdminDashboardPage() {
                           </div>
                         ) : (
                           <p className="text-xs text-gray-500">Set and save a refund amount above to enable an immediate Razorpay refund.</p>
+                        )}
+
+                        <div className="flex items-center gap-3 my-4">
+                          <div className="h-px flex-1 bg-gray-800" />
+                          <span className="text-[10px] text-gray-600 uppercase tracking-wider">Or</span>
+                          <div className="h-px flex-1 bg-gray-800" />
+                        </div>
+
+                        <div className="bg-[#131724] border border-gray-700 rounded-xl p-4 space-y-3">
+                          <div>
+                            <p className="text-sm text-gray-200 font-medium">Record a manual payment</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Use this if you sent the refund yourself outside Razorpay (bank transfer, UPI, cash) — attach a photo of the payment as proof.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Amount (₹)</label>
+                              <input
+                                type="number"
+                                value={payoutAmount}
+                                onChange={(e) => setPayoutAmount(e.target.value)}
+                                placeholder={selected.refundAmount !== null ? String(selected.refundAmount) : "e.g. 2999"}
+                                className="w-full px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                              <input
+                                type="text"
+                                value={payoutReason}
+                                onChange={(e) => setPayoutReason(e.target.value)}
+                                placeholder="e.g. Security Deposit Refund"
+                                className="w-full px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-lg text-sm"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Payment Proof (photo/screenshot)</label>
+                            <label className="flex items-center justify-between gap-2 px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-lg text-sm cursor-pointer">
+                              <span className={payoutProofFile ? "text-gray-300 truncate" : "text-gray-600"}>
+                                {payoutProofFile ? payoutProofFile.name : "Choose a photo..."}
+                              </span>
+                              <span className="text-[#f26522] text-xs font-medium shrink-0">Browse</span>
+                              <input
+                                type="file"
+                                accept=".png,.jpg,.jpeg,.pdf"
+                                className="hidden"
+                                onChange={(e) => setPayoutProofFile(e.target.files?.[0] || null)}
+                              />
+                            </label>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={recordManualRefundPayout}
+                            disabled={recordingPayout}
+                            className="w-full px-4 py-2 text-sm bg-[#131724] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50"
+                          >
+                            {recordingPayout ? "Recording..." : "Record Manual Payment"}
+                          </button>
+                        </div>
+
+                        {payoutHistory.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Manual Payment History</p>
+                            {payoutHistory.map((p) => (
+                              <div key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-800 bg-[#131724]/40 text-xs">
+                                <div className="min-w-0">
+                                  <span className="text-white font-medium">₹{p.amount}</span>{" "}
+                                  <span className="text-gray-500">· {p.reason}</span>
+                                  <div className="text-gray-600">{formatDateDMY(p.createdAt)}</div>
+                                </div>
+                                {p.proofUrl && (
+                                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-[#f26522] hover:underline shrink-0">
+                                    View Proof
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
