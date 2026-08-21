@@ -404,6 +404,9 @@ export default function AdminDashboardPage() {
   const [paymentLinkUrl, setPaymentLinkUrl] = useState("");
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
+  const [isActivatingAutopay, setIsActivatingAutopay] = useState(false);
+  const [autopayLinkUrl, setAutopayLinkUrl] = useState("");
+  const [copiedAutopayLink, setCopiedAutopayLink] = useState(false);
   const [paymentLinkHistory, setPaymentLinkHistory] = useState<PaymentLinkRecord[]>([]);
   const [paymentLinkHistoryLoading, setPaymentLinkHistoryLoading] = useState(false);
   const [paymentLinkHistoryError, setPaymentLinkHistoryError] = useState("");
@@ -950,6 +953,8 @@ export default function AdminDashboardPage() {
     setPaymentLinkUrl("");
     setCopiedPaymentLink(false);
     setCopiedPaymentLinkId("");
+    setAutopayLinkUrl("");
+    setCopiedAutopayLink(false);
     const defaultPlan = customer.planDuration === 12 ? 24 : 12;
     setNewPlanDuration(String(defaultPlan));
     setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[defaultPlan] - SECURITY_DEPOSIT_AMOUNTS[customer.planDuration])));
@@ -1155,6 +1160,45 @@ export default function AdminDashboardPage() {
       await navigator.clipboard.writeText(paymentLinkUrl);
       setCopiedPaymentLink(true);
       setTimeout(() => setCopiedPaymentLink(false), 2000);
+    } catch {
+      setError("Failed to copy link");
+    }
+  };
+
+  // Creates a fresh Razorpay Subscription and hands back its authorization
+  // link — always a brand-new mandate, never a reactivation of a cancelled
+  // one (Razorpay doesn't support that). Autopay only flips to ACTIVE once
+  // the customer opens this link and authorizes it themselves; this call
+  // just gets that link generated so it can be shared with them.
+  const handleActivateAutopay = async () => {
+    if (!selected) return;
+    setIsActivatingAutopay(true);
+    setError("");
+    setAutopayLinkUrl("");
+    try {
+      const res = await adminFetch(`/api/admin/customers/${selected.id}/activate-autopay`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setAutopayLinkUrl(data.shortUrl);
+        const refreshedRes = await adminFetch(`/api/admin/customers/${selected.id}`);
+        const refreshedData = await refreshedRes.json();
+        if (refreshedData.success) setSelected(refreshedData.customer);
+        loadCustomers();
+      } else {
+        setError(data.message || "Failed to activate autopay");
+      }
+    } catch {
+      setError("Error connecting to server");
+    } finally {
+      setIsActivatingAutopay(false);
+    }
+  };
+
+  const copyAutopayLink = async () => {
+    try {
+      await navigator.clipboard.writeText(autopayLinkUrl);
+      setCopiedAutopayLink(true);
+      setTimeout(() => setCopiedAutopayLink(false), 2000);
     } catch {
       setError("Failed to copy link");
     }
@@ -2834,7 +2878,33 @@ export default function AdminDashboardPage() {
                       {selected.autopayStatus === "FAILED" && (
                         <span className="text-xs text-red-400">Charge failed — generate a payment link below to collect manually.</span>
                       )}
+                      {selected.autopayStatus !== "ACTIVE" && (
+                        <button
+                          type="button"
+                          onClick={handleActivateAutopay}
+                          disabled={isActivatingAutopay || !selected.rentalPlanDuration || !selected.rentalAmount}
+                          title={!selected.rentalPlanDuration || !selected.rentalAmount ? "Activate this customer's rental first" : undefined}
+                          className="ml-auto text-xs text-[#f26522] hover:underline disabled:opacity-40 disabled:no-underline"
+                        >
+                          {isActivatingAutopay ? "Generating link..." : selected.autopayStatus === "PENDING" ? "Regenerate Autopay Link" : "Activate Autopay"}
+                        </button>
+                      )}
                     </div>
+                    {autopayLinkUrl && (
+                      <div className="bg-[#131724] border border-gray-700 rounded-xl p-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 mb-1">Send this to the customer to authorize UPI Autopay:</p>
+                          <p className="text-sm text-white truncate">{autopayLinkUrl}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={copyAutopayLink}
+                          className="shrink-0 px-3 py-1.5 text-xs bg-[#1a1f30] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                        >
+                          {copiedAutopayLink ? "Copied!" : "Copy Link"}
+                        </button>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Payment Status (Don't touch until refund initiated from company)</label>
