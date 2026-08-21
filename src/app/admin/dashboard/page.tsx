@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { adminFetch, clearAdminToken, getAdminToken } from "@/lib/adminApi";
+import { adminFetch, clearAdminToken, getAdminToken, API_BASE } from "@/lib/adminApi";
 
 interface Customer {
   id: string;
@@ -432,6 +432,7 @@ export default function AdminDashboardPage() {
   const [paymentLinkHistoryLoading, setPaymentLinkHistoryLoading] = useState(false);
   const [paymentLinkHistoryError, setPaymentLinkHistoryError] = useState("");
   const [copiedPaymentLinkId, setCopiedPaymentLinkId] = useState("");
+  const [copiedInvoiceLinkId, setCopiedInvoiceLinkId] = useState("");
   const [markingPaidId, setMarkingPaidId] = useState("");
   const [transactionMode, setTransactionMode] = useState<"pay" | "collect">("collect");
   const [payoutAmount, setPayoutAmount] = useState("");
@@ -1199,6 +1200,20 @@ export default function AdminDashboardPage() {
   // one (Razorpay doesn't support that). Autopay only flips to ACTIVE once
   // the customer opens this link and authorizes it themselves; this call
   // just gets that link generated so it can be shared with them.
+  // Public, unauthenticated route — same one customer-facing pages already
+  // use for their own receipt downloads — so this link works for anyone it's
+  // shared with (WhatsApp, SMS, email) without needing an admin login.
+  const copyInvoicePdfLink = async (invoice: Invoice) => {
+    if (!selected) return;
+    try {
+      await navigator.clipboard.writeText(`${API_BASE}/api/customer/${selected.id}/invoices/${invoice.id}/pdf`);
+      setCopiedInvoiceLinkId(invoice.id);
+      setTimeout(() => setCopiedInvoiceLinkId(""), 2000);
+    } catch {
+      setError("Failed to copy link");
+    }
+  };
+
   const copyHistoryLink = async (record: PaymentLinkRecord) => {
     try {
       await navigator.clipboard.writeText(record.shortUrl);
@@ -2887,9 +2902,14 @@ export default function AdminDashboardPage() {
                                 {inv.transactionId && ` · ${inv.transactionId}`}
                               </div>
                             </div>
-                            <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline shrink-0">
-                              Download PDF
-                            </button>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <button onClick={() => copyInvoicePdfLink(inv)} className="text-gray-400 hover:text-white">
+                                {copiedInvoiceLinkId === inv.id ? "Copied!" : "Copy Link"}
+                              </button>
+                              <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline">
+                                Download PDF
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -3339,9 +3359,14 @@ export default function AdminDashboardPage() {
                                       </div>
                                       <div className="text-gray-600 text-[10px] mt-0.5">{formatDateTimeDMY(inv.documentDate)}</div>
                                     </div>
-                                    <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline shrink-0">
-                                      Download PDF
-                                    </button>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                      <button onClick={() => copyInvoicePdfLink(inv)} className="text-gray-400 hover:text-white">
+                                        {copiedInvoiceLinkId === inv.id ? "Copied!" : "Copy Link"}
+                                      </button>
+                                      <button onClick={() => downloadInvoicePdf(inv)} className="text-[#f26522] hover:underline">
+                                        Download PDF
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -3673,12 +3698,20 @@ export default function AdminDashboardPage() {
                               </div>
                               <div>
                                 <span className="block text-gray-500 text-xs mb-1">Receipt</span>
-                                <button
-                                  onClick={() => downloadInvoicePdf(refundInvoice)}
-                                  className="text-[#f26522] hover:underline font-medium"
-                                >
-                                  Download PDF
-                                </button>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => copyInvoicePdfLink(refundInvoice)}
+                                    className="text-gray-400 hover:text-white font-medium"
+                                  >
+                                    {copiedInvoiceLinkId === refundInvoice.id ? "Copied!" : "Copy Link"}
+                                  </button>
+                                  <button
+                                    onClick={() => downloadInvoicePdf(refundInvoice)}
+                                    className="text-[#f26522] hover:underline font-medium"
+                                  >
+                                    Download PDF
+                                  </button>
+                                </div>
                               </div>
                             </div>
                             {refundInvoice.paymentMethod === "Razorpay" && (
