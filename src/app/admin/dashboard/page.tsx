@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminFetch, clearAdminToken, getAdminToken } from "@/lib/adminApi";
 
@@ -401,6 +401,10 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState("");
   const [isExportingCustomers, setIsExportingCustomers] = useState(false);
   const [selected, setSelected] = useState<Customer | null>(null);
+  // Tracks which customer openEdit's background refresh is for, so that
+  // quickly switching to a different customer before it resolves can't
+  // clobber the newer panel with the older customer's fetched data.
+  const openEditRequestIdRef = useRef<string | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -963,7 +967,48 @@ export default function AdminDashboardPage() {
     router.replace("/admin/login");
   };
 
+  const buildEditForm = (customer: Customer) => ({
+    paymentStatus: customer.paymentStatus,
+    subscriptionStatus: customer.subscriptionStatus,
+    // Falls back to the customer's originally-committed plan when
+    // rentalPlanDuration/rentalAmount are still unset — this happens for
+    // anyone whose autopay was first activated by the subscription.charged
+    // webhook before it started backfilling these fields (see
+    // webhook.controller.ts); they'd otherwise show "Not set" until their
+    // next monthly charge fires. Saving here writes the fallback in for
+    // good, matching the backend's own "already on file" fallback.
+    rentalPlanDuration: String(customer.rentalPlanDuration || customer.planDuration),
+    rentalAmount: String(customer.rentalAmount || RENTAL_AMOUNTS[customer.planDuration] || ""),
+    // The fixed whole-term contract dates — set once at first activation,
+    // only changed by an explicit plan upgrade/downgrade.
+    planStartDate: customer.planStartDate ? customer.planStartDate.slice(0, 10) : "",
+    planEndDate: customer.planEndDate ? customer.planEndDate.slice(0, 10) : "",
+    // The current billing cycle. Same legacy gap as rentalPlanDuration
+    // above, one field over: the old subscription.charged webhook set the
+    // due date (from Razorpay's current_end) but never the cycle start —
+    // only the fixed activateRentalCycle path sets both together.
+    // lastPaymentDate WAS set by that old code and is the closest
+    // available proxy for when the current cycle actually began; there's
+    // no more accurate value stored anywhere for these legacy customers.
+    // Saving here backfills the real column, same as above.
+    currentRentStartDate: customer.currentRentStartDate
+      ? customer.currentRentStartDate.slice(0, 10)
+      : customer.lastPaymentDate
+      ? customer.lastPaymentDate.slice(0, 10)
+      : "",
+    nextRentDueDate: customer.nextRentDueDate ? customer.nextRentDueDate.slice(0, 10) : "",
+    returnRequested: String(customer.returnRequested),
+    refundAmount: customer.refundAmount !== null ? String(customer.refundAmount) : "",
+    modelName: customer.modelName || "",
+    machineSerialNumber: customer.machineSerialNumber || "",
+    bankAccountHolderName: customer.bankAccountHolderName || "",
+    bankName: customer.bankName || "",
+    bankIfscCode: customer.bankIfscCode || "",
+    bankAccountNumber: customer.bankAccountNumber || "",
+  });
+
   const openEdit = (customer: Customer) => {
+    openEditRequestIdRef.current = customer.id;
     setSelected(customer);
     setActiveSection("details");
     setPaymentLinkAmount("");
@@ -984,55 +1029,20 @@ export default function AdminDashboardPage() {
     // triggers a live lookup instead (see selectUpiPayoutMethod below).
     setPayoutUpiId(customer.customerUpiVpa || "");
     setPayoutUpiSource(customer.customerUpiVpa ? "captured" : "manual");
-    setEditForm({
-      paymentStatus: customer.paymentStatus,
-      subscriptionStatus: customer.subscriptionStatus,
-      // Falls back to the customer's originally-committed plan when
-      // rentalPlanDuration/rentalAmount are still unset — this happens for
-      // anyone whose autopay was first activated by the subscription.charged
-      // webhook before it started backfilling these fields (see
-      // webhook.controller.ts); they'd otherwise show "Not set" until their
-      // next monthly charge fires. Saving here writes the fallback in for
-      // good, matching the backend's own "already on file" fallback.
-      rentalPlanDuration: String(customer.rentalPlanDuration || customer.planDuration),
-      rentalAmount: String(customer.rentalAmount || RENTAL_AMOUNTS[customer.planDuration] || ""),
-      // The fixed whole-term contract dates — set once at first activation,
-      // only changed by an explicit plan upgrade/downgrade.
-      planStartDate: customer.planStartDate ? customer.planStartDate.slice(0, 10) : "",
-      planEndDate: customer.planEndDate ? customer.planEndDate.slice(0, 10) : "",
-      // The current billing cycle. Same legacy gap as rentalPlanDuration
-      // above, one field over: the old subscription.charged webhook set the
-      // due date (from Razorpay's current_end) but never the cycle start —
-      // only the fixed activateRentalCycle path sets both together.
-      // lastPaymentDate WAS set by that old code and is the closest
-      // available proxy for when the current cycle actually began; there's
-      // no more accurate value stored anywhere for these legacy customers.
-      // Saving here backfills the real column, same as above.
-      currentRentStartDate: customer.currentRentStartDate
-        ? customer.currentRentStartDate.slice(0, 10)
-        : customer.lastPaymentDate
-        ? customer.lastPaymentDate.slice(0, 10)
-        : "",
-      nextRentDueDate: customer.nextRentDueDate ? customer.nextRentDueDate.slice(0, 10) : "",
-      returnRequested: String(customer.returnRequested),
-      refundAmount: customer.refundAmount !== null ? String(customer.refundAmount) : "",
-      modelName: customer.modelName || "",
-      machineSerialNumber: customer.machineSerialNumber || "",
-      bankAccountHolderName: customer.bankAccountHolderName || "",
-      bankName: customer.bankName || "",
-      bankIfscCode: customer.bankIfscCode || "",
-      bankAccountNumber: customer.bankAccountNumber || "",
-    });
+    setEditForm(buildEditForm(customer));
 
     // The row above comes from the cached list, which can be stale — e.g.
-    // autopayStatus only updates here via a Razorpay webhook, so a customer
-    // who paused/resumed autopay after the list last loaded would still show
-    // the old badge. Refresh it in the background so the panel corrects
-    // itself without the admin having to reload the whole page.
+    // returnRequested/paymentStatus/autopayStatus only update here via a
+    // separate action (a return submission, a webhook), so a customer whose
+    // record changed after the list last loaded would still show old values.
+    // Refresh both selected AND editForm in the background so the panel
+    // corrects itself without the admin having to reload the whole page.
     adminFetch(`/api/admin/customers/${customer.id}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) setSelected((prev) => (prev && prev.id === customer.id ? data.customer : prev));
+        if (!data.success || openEditRequestIdRef.current !== customer.id) return;
+        setSelected(data.customer);
+        setEditForm(buildEditForm(data.customer));
       })
       .catch(() => {});
   };
