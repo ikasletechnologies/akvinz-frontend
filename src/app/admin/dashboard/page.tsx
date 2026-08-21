@@ -3321,6 +3321,46 @@ export default function AdminDashboardPage() {
                             <span className="text-white font-medium">{selected.bankAccountNumber}</span>
                           </div>
                         </div>
+                      ) : selected.refundBankAccountNumber ? (
+                        <div className="space-y-3">
+                          <div className="bg-[#131724] border border-gray-700 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="block text-gray-500 text-xs mb-1">Account Holder Name</span>
+                              <span className="text-white font-medium">{selected.refundBankAccountHolderName || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="block text-gray-500 text-xs mb-1">Bank Name</span>
+                              <span className="text-white font-medium">{selected.refundBankName || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="block text-gray-500 text-xs mb-1">IFSC Code</span>
+                              <span className="text-white font-medium">{selected.refundBankIfscCode || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="block text-gray-500 text-xs mb-1">Account Number</span>
+                              <span className="text-white font-medium">{selected.refundBankAccountNumber}</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            No general bank details on file — fetched from their refund submission instead.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditForm({
+                                ...editForm,
+                                bankAccountHolderName: selected.refundBankAccountHolderName || "",
+                                bankName: selected.refundBankName || "",
+                                bankIfscCode: selected.refundBankIfscCode || "",
+                                bankAccountNumber: selected.refundBankAccountNumber || "",
+                              });
+                              setEditingBankDetails(true);
+                            }}
+                            className="text-xs text-[#f26522] hover:underline"
+                          >
+                            Use these as their Bank Account Details
+                          </button>
+                        </div>
                       ) : (
                         <p className="text-sm text-gray-500">
                           No bank details submitted yet. Use &quot;Copy Bank Details Link&quot; in Quick Links to request them, or click Edit to enter them yourself.
