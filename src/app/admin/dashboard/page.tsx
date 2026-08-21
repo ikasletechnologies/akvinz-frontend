@@ -594,7 +594,7 @@ export default function AdminDashboardPage() {
 
       const header = [
         "Name", "Mobile", "Email", "Address Line 1", "Address Line 2", "City", "State", "Pincode",
-        "Plan Duration (months)", "House Type", "Payment Status", "Subscription Status",
+        "Plan Duration (months)", "House Type", "Payment Status", "Subscription Status", "Autopay Status",
         "Model", "Serial Number", "Security Deposit", "Rental Amount", "Due Date", "Last Rental Payment",
         "Joined", "Return Requested", "Return Requested At", "Refund Amount",
       ];
@@ -611,6 +611,7 @@ export default function AdminDashboardPage() {
         c.houseType,
         c.paymentStatus,
         c.subscriptionStatus,
+        c.autopayStatus || "NOT_SET",
         c.modelName,
         c.machineSerialNumber,
         SECURITY_DEPOSIT_AMOUNTS[c.planDuration] ?? "",
@@ -1670,23 +1671,31 @@ export default function AdminDashboardPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-gray-400 mb-1">From</label>
-            <input
-              type="date"
-              lang="en-GB"
-              value={statsFrom}
-              onChange={(e) => setStatsFrom(e.target.value)}
-              className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-white text-sm"
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={statsFrom}
+                onChange={(e) => setStatsFrom(e.target.value)}
+                className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-sm text-transparent"
+              />
+              <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
+                {statsFrom ? formatDateDMY(statsFrom) : <span className="text-gray-600">dd/mm/yyyy</span>}
+              </span>
+            </div>
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">To</label>
-            <input
-              type="date"
-              lang="en-GB"
-              value={statsTo}
-              onChange={(e) => setStatsTo(e.target.value)}
-              className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-white text-sm"
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={statsTo}
+                onChange={(e) => setStatsTo(e.target.value)}
+                className="px-3 py-2 bg-[#1a1f30] border border-gray-700 rounded-xl text-sm text-transparent"
+              />
+              <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
+                {statsTo ? formatDateDMY(statsTo) : <span className="text-gray-600">dd/mm/yyyy</span>}
+              </span>
+            </div>
           </div>
           {(statsFrom || statsTo) && (
             <button
@@ -2859,34 +2868,42 @@ export default function AdminDashboardPage() {
                       </div>
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Rent Start Date</label>
-                        <input
-                          type="date"
-                          lang="en-GB"
-                          value={editForm.subscriptionStart}
-                          onChange={(e) => {
-                            const start = e.target.value;
-                            setEditForm({
-                              ...editForm,
-                              subscriptionStart: start,
-                              subscriptionEnd: start && editForm.rentalPlanDuration
-                                ? addMonths(start, Number(editForm.rentalPlanDuration))
-                                : editForm.subscriptionEnd
-                            });
-                          }}
-                          className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editForm.subscriptionStart}
+                            onChange={(e) => {
+                              const start = e.target.value;
+                              setEditForm({
+                                ...editForm,
+                                subscriptionStart: start,
+                                subscriptionEnd: start && editForm.rentalPlanDuration
+                                  ? addMonths(start, Number(editForm.rentalPlanDuration))
+                                  : editForm.subscriptionEnd
+                              });
+                            }}
+                            className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-transparent"
+                          />
+                          <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
+                            {editForm.subscriptionStart ? formatDateDMY(editForm.subscriptionStart) : <span className="text-gray-600">dd/mm/yyyy</span>}
+                          </span>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">
                           Rent End Date {editForm.rentalPlanDuration ? `(${editForm.rentalPlanDuration} months)` : ""}
                         </label>
-                        <input
-                          type="date"
-                          lang="en-GB"
-                          value={editForm.subscriptionEnd}
-                          onChange={(e) => setEditForm({ ...editForm, subscriptionEnd: e.target.value })}
-                          className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editForm.subscriptionEnd}
+                            onChange={(e) => setEditForm({ ...editForm, subscriptionEnd: e.target.value })}
+                            className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-transparent"
+                          />
+                          <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
+                            {editForm.subscriptionEnd ? formatDateDMY(editForm.subscriptionEnd) : <span className="text-gray-600">dd/mm/yyyy</span>}
+                          </span>
+                        </div>
                       </div>
                       {editForm.subscriptionStart && editForm.rentalPlanDuration && (() => {
                         const years = Number(editForm.rentalPlanDuration) / 12;
@@ -3536,15 +3553,19 @@ export default function AdminDashboardPage() {
                                     </div>
                                     <div>
                                       <label className="block text-xs text-gray-500 mb-1">Date</label>
-                                      <input
-                                        type="date"
-                                        lang="en-GB"
-                                        value={form.eventDate}
-                                        onChange={(e) =>
-                                          setReturnEventForm((prev) => ({ ...prev, [step.key]: { ...form, eventDate: e.target.value } }))
-                                        }
-                                        className="px-2 py-1.5 bg-[#1a1f30] border border-gray-700 rounded-lg text-xs"
-                                      />
+                                      <div className="relative">
+                                        <input
+                                          type="date"
+                                          value={form.eventDate}
+                                          onChange={(e) =>
+                                            setReturnEventForm((prev) => ({ ...prev, [step.key]: { ...form, eventDate: e.target.value } }))
+                                          }
+                                          className="px-2 py-1.5 bg-[#1a1f30] border border-gray-700 rounded-lg text-xs text-transparent"
+                                        />
+                                        <span className="absolute inset-0 flex items-center px-2 text-xs text-white pointer-events-none">
+                                          {form.eventDate ? formatDateDMY(form.eventDate) : <span className="text-gray-600">dd/mm/yyyy</span>}
+                                        </span>
+                                      </div>
                                     </div>
                                     <div>
                                       <label className="block text-xs text-gray-500 mb-1">Time</label>
