@@ -24,9 +24,15 @@ interface Customer {
   rentalPlanDuration: number | null;
   rentalAmount: number | null;
   subscriptionStatus: string;
-  subscriptionStart: string | null;
-  subscriptionEnd: string | null;
+  // Fixed for the whole 12/24-month committed term.
+  planStartDate: string | null;
+  planEndDate: string | null;
+  // The current billing cycle — overwritten every rent payment.
+  currentRentStartDate: string | null;
+  currentRentEndDate: string | null;
+  nextRentDueDate: string | null;
   lastPaymentDate: string | null;
+  billingDay: number | null;
   autopayStatus: string | null;
   returnRequested: boolean;
   returnRequestedAt: string | null;
@@ -76,6 +82,8 @@ interface Invoice {
   transactionId: string | null;
   status: string;
   reason: string | null;
+  rentStartDate: string | null;
+  rentEndDate: string | null;
   documentDate: string;
   createdAt: string;
 }
@@ -216,10 +224,22 @@ function formatDateTimeDMY(date: string | Date): string {
   return `${formatDateDMY(d)}, ${time}`;
 }
 
+// Mirrors the backend's addBillingMonths (billing.ts) exactly — a plain
+// d.setMonth(d.getMonth() + months) overflows for end-of-month dates (e.g.
+// 31 Jan + 1 month silently becomes a March date instead of clamping to
+// 28/29 Feb), which previously let an admin save a wrong contract-end date.
+function daysInMonth(year: number, monthIndex0: number): number {
+  return new Date(year, monthIndex0 + 1, 0).getDate();
+}
+
 function addMonths(dateStr: string, months: number): string {
   const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
+  const billingDay = d.getDate();
+  const targetMonth = d.getMonth() + months;
+  const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const day = Math.min(billingDay, daysInMonth(targetYear, normalizedMonth));
+  return `${targetYear}-${String(normalizedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function returnEventStatusColor(status: string): string {
@@ -238,11 +258,11 @@ async function isAssetReceived(customerId: string): Promise<boolean> {
 }
 
 function DueDateCell({ customer }: { customer: Customer }) {
-  if (!customer.subscriptionEnd) {
+  if (!customer.nextRentDueDate) {
     return <span className="text-gray-500 text-xs">-</span>;
   }
 
-  const due = new Date(customer.subscriptionEnd);
+  const due = new Date(customer.nextRentDueDate);
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   const today = new Date();
   const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -404,9 +424,6 @@ export default function AdminDashboardPage() {
   const [paymentLinkUrl, setPaymentLinkUrl] = useState("");
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
-  const [isActivatingAutopay, setIsActivatingAutopay] = useState(false);
-  const [autopayLinkUrl, setAutopayLinkUrl] = useState("");
-  const [copiedAutopayLink, setCopiedAutopayLink] = useState(false);
   const [paymentLinkHistory, setPaymentLinkHistory] = useState<PaymentLinkRecord[]>([]);
   const [paymentLinkHistoryLoading, setPaymentLinkHistoryLoading] = useState(false);
   const [paymentLinkHistoryError, setPaymentLinkHistoryError] = useState("");
@@ -619,7 +636,7 @@ export default function AdminDashboardPage() {
         c.machineSerialNumber,
         SECURITY_DEPOSIT_AMOUNTS[c.planDuration] ?? "",
         c.rentalAmount,
-        c.subscriptionEnd ? formatDateDMY(c.subscriptionEnd) : "",
+        c.nextRentDueDate ? formatDateDMY(c.nextRentDueDate) : "",
         c.lastPaymentDate ? formatDateDMY(c.lastPaymentDate) : "",
         formatDateDMY(c.createdAt),
         c.returnRequested ? "Yes" : "No",
@@ -652,8 +669,8 @@ export default function AdminDashboardPage() {
         selected.mobileNumber,
         selected.email,
         location,
-        selected.subscriptionStart ? formatDateDMY(selected.subscriptionStart) : "",
-        selected.subscriptionEnd ? formatDateDMY(selected.subscriptionEnd) : "",
+        inv.rentStartDate ? formatDateDMY(inv.rentStartDate) : "",
+        inv.rentEndDate ? formatDateDMY(inv.rentEndDate) : "",
         inv.billNumber,
         inv.reason || inv.productType,
         inv.amount,
@@ -953,8 +970,6 @@ export default function AdminDashboardPage() {
     setPaymentLinkUrl("");
     setCopiedPaymentLink(false);
     setCopiedPaymentLinkId("");
-    setAutopayLinkUrl("");
-    setCopiedAutopayLink(false);
     const defaultPlan = customer.planDuration === 12 ? 24 : 12;
     setNewPlanDuration(String(defaultPlan));
     setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[defaultPlan] - SECURITY_DEPOSIT_AMOUNTS[customer.planDuration])));
@@ -981,20 +996,24 @@ export default function AdminDashboardPage() {
       // good, matching the backend's own "already on file" fallback.
       rentalPlanDuration: String(customer.rentalPlanDuration || customer.planDuration),
       rentalAmount: String(customer.rentalAmount || RENTAL_AMOUNTS[customer.planDuration] || ""),
-      // Same legacy gap as rentalPlanDuration above, one field over: the old
-      // subscription.charged webhook set subscriptionEnd (from Razorpay's
-      // current_end) but never set subscriptionStart at all — only the
-      // fixed activateRentalCycle path sets both together. lastPaymentDate
-      // WAS set by that old code and is the closest available proxy for
-      // when the current billing cycle actually began; there's no more
-      // accurate value stored anywhere for these legacy customers. Saving
-      // here backfills the real column, same as above.
-      subscriptionStart: customer.subscriptionStart
-        ? customer.subscriptionStart.slice(0, 10)
+      // The fixed whole-term contract dates — set once at first activation,
+      // only changed by an explicit plan upgrade/downgrade.
+      planStartDate: customer.planStartDate ? customer.planStartDate.slice(0, 10) : "",
+      planEndDate: customer.planEndDate ? customer.planEndDate.slice(0, 10) : "",
+      // The current billing cycle. Same legacy gap as rentalPlanDuration
+      // above, one field over: the old subscription.charged webhook set the
+      // due date (from Razorpay's current_end) but never the cycle start —
+      // only the fixed activateRentalCycle path sets both together.
+      // lastPaymentDate WAS set by that old code and is the closest
+      // available proxy for when the current cycle actually began; there's
+      // no more accurate value stored anywhere for these legacy customers.
+      // Saving here backfills the real column, same as above.
+      currentRentStartDate: customer.currentRentStartDate
+        ? customer.currentRentStartDate.slice(0, 10)
         : customer.lastPaymentDate
         ? customer.lastPaymentDate.slice(0, 10)
         : "",
-      subscriptionEnd: customer.subscriptionEnd ? customer.subscriptionEnd.slice(0, 10) : "",
+      nextRentDueDate: customer.nextRentDueDate ? customer.nextRentDueDate.slice(0, 10) : "",
       returnRequested: String(customer.returnRequested),
       refundAmount: customer.refundAmount !== null ? String(customer.refundAmount) : "",
       modelName: customer.modelName || "",
@@ -1170,40 +1189,6 @@ export default function AdminDashboardPage() {
   // one (Razorpay doesn't support that). Autopay only flips to ACTIVE once
   // the customer opens this link and authorizes it themselves; this call
   // just gets that link generated so it can be shared with them.
-  const handleActivateAutopay = async () => {
-    if (!selected) return;
-    setIsActivatingAutopay(true);
-    setError("");
-    setAutopayLinkUrl("");
-    try {
-      const res = await adminFetch(`/api/admin/customers/${selected.id}/activate-autopay`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setAutopayLinkUrl(data.shortUrl);
-        const refreshedRes = await adminFetch(`/api/admin/customers/${selected.id}`);
-        const refreshedData = await refreshedRes.json();
-        if (refreshedData.success) setSelected(refreshedData.customer);
-        loadCustomers();
-      } else {
-        setError(data.message || "Failed to activate autopay");
-      }
-    } catch {
-      setError("Error connecting to server");
-    } finally {
-      setIsActivatingAutopay(false);
-    }
-  };
-
-  const copyAutopayLink = async () => {
-    try {
-      await navigator.clipboard.writeText(autopayLinkUrl);
-      setCopiedAutopayLink(true);
-      setTimeout(() => setCopiedAutopayLink(false), 2000);
-    } catch {
-      setError("Failed to copy link");
-    }
-  };
-
   const copyHistoryLink = async (record: PaymentLinkRecord) => {
     try {
       await navigator.clipboard.writeText(record.shortUrl);
@@ -2878,33 +2863,7 @@ export default function AdminDashboardPage() {
                       {selected.autopayStatus === "FAILED" && (
                         <span className="text-xs text-red-400">Charge failed — generate a payment link below to collect manually.</span>
                       )}
-                      {selected.autopayStatus !== "ACTIVE" && (
-                        <button
-                          type="button"
-                          onClick={handleActivateAutopay}
-                          disabled={isActivatingAutopay || !selected.rentalPlanDuration || !selected.rentalAmount}
-                          title={!selected.rentalPlanDuration || !selected.rentalAmount ? "Activate this customer's rental first" : undefined}
-                          className="ml-auto text-xs text-[#f26522] hover:underline disabled:opacity-40 disabled:no-underline"
-                        >
-                          {isActivatingAutopay ? "Generating link..." : selected.autopayStatus === "PENDING" ? "Regenerate Autopay Link" : "Activate Autopay"}
-                        </button>
-                      )}
                     </div>
-                    {autopayLinkUrl && (
-                      <div className="bg-[#131724] border border-gray-700 rounded-xl p-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-500 mb-1">Send this to the customer to authorize UPI Autopay:</p>
-                          <p className="text-sm text-white truncate">{autopayLinkUrl}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={copyAutopayLink}
-                          className="shrink-0 px-3 py-1.5 text-xs bg-[#1a1f30] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
-                        >
-                          {copiedAutopayLink ? "Copied!" : "Copy Link"}
-                        </button>
-                      </div>
-                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Payment Status (Don't touch until refund initiated from company)</label>
@@ -2937,60 +2896,57 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Rent Start Date</label>
+                        <label className="block text-xs text-gray-400 mb-1">Rent Start Date (current cycle)</label>
                         <div className="relative">
                           <input
                             type="date"
-                            value={editForm.subscriptionStart}
+                            value={editForm.currentRentStartDate}
                             onChange={(e) => {
                               const start = e.target.value;
                               setEditForm({
                                 ...editForm,
-                                subscriptionStart: start,
-                                subscriptionEnd: start && editForm.rentalPlanDuration
-                                  ? addMonths(start, Number(editForm.rentalPlanDuration))
-                                  : editForm.subscriptionEnd
+                                currentRentStartDate: start,
+                                // One month ahead, not the whole plan term —
+                                // this is just the next single billing cycle.
+                                nextRentDueDate: start ? addMonths(start, 1) : editForm.nextRentDueDate
                               });
                             }}
                             className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-transparent"
                           />
                           <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
-                            {editForm.subscriptionStart ? formatDateDMY(editForm.subscriptionStart) : <span className="text-gray-600">dd/mm/yyyy</span>}
+                            {editForm.currentRentStartDate ? formatDateDMY(editForm.currentRentStartDate) : <span className="text-gray-600">dd/mm/yyyy</span>}
                           </span>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">
-                          Rent End Date {editForm.rentalPlanDuration ? `(${editForm.rentalPlanDuration} months)` : ""}
-                        </label>
+                        <label className="block text-xs text-gray-400 mb-1">Rent Due Date (current cycle)</label>
                         <div className="relative">
                           <input
                             type="date"
-                            value={editForm.subscriptionEnd}
-                            onChange={(e) => setEditForm({ ...editForm, subscriptionEnd: e.target.value })}
+                            value={editForm.nextRentDueDate}
+                            onChange={(e) => setEditForm({ ...editForm, nextRentDueDate: e.target.value })}
                             className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-transparent"
                           />
                           <span className="absolute inset-0 flex items-center px-3 text-sm text-white pointer-events-none">
-                            {editForm.subscriptionEnd ? formatDateDMY(editForm.subscriptionEnd) : <span className="text-gray-600">dd/mm/yyyy</span>}
+                            {editForm.nextRentDueDate ? formatDateDMY(editForm.nextRentDueDate) : <span className="text-gray-600">dd/mm/yyyy</span>}
                           </span>
                         </div>
                       </div>
-                      {editForm.subscriptionStart && editForm.rentalPlanDuration && (() => {
+                      {editForm.planStartDate && editForm.planEndDate && editForm.rentalPlanDuration && (() => {
                         const years = Number(editForm.rentalPlanDuration) / 12;
-                        const termEnd = addMonths(editForm.subscriptionStart, Number(editForm.rentalPlanDuration));
                         return (
                           <div className="col-span-2">
                             <label className="block text-xs text-gray-400 mb-1">
                               Plan Term ({years} year{years === 1 ? "" : "s"})
                             </label>
                             <div className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm text-gray-300">
-                              {formatDateDMY(editForm.subscriptionStart)} → {formatDateDMY(termEnd)}
+                              {formatDateDMY(editForm.planStartDate)} → {formatDateDMY(editForm.planEndDate)}
                             </div>
                           </div>
                         );
                       })()}
-                      {editForm.subscriptionEnd && (() => {
-                        const due = new Date(editForm.subscriptionEnd);
+                      {editForm.nextRentDueDate && (() => {
+                        const due = new Date(editForm.nextRentDueDate);
                         const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
                         const today = new Date();
                         const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
