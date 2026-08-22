@@ -1262,6 +1262,36 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const syncCustomerStatus = async (customerId: string, notify = false) => {
+    try {
+      const res = await adminFetch(`/api/admin/customers/${customerId}`);
+      const data = await res.json();
+      if (data.success && data.customer) {
+        const prevPlan = selected?.planDuration;
+        const currentPlan = data.customer.planDuration;
+        setSelected(data.customer);
+        setEditForm(buildEditForm(data.customer));
+
+        if (prevPlan && prevPlan !== currentPlan) {
+          const nextPlan = currentPlan === 12 ? 24 : 12;
+          setNewPlanDuration(String(nextPlan));
+          setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[nextPlan] - SECURITY_DEPOSIT_AMOUNTS[currentPlan])));
+          setPlanChangeTopUpUrl("");
+          setPlanChangeSuccessMessage(`Payment detected! Plan updated to ${currentPlan} months.`);
+          setTimeout(() => setPlanChangeSuccessMessage(""), 5000);
+        }
+        loadPaymentLinkHistory(customerId);
+        loadInvoices(customerId);
+        loadCustomers();
+        loadStats();
+      } else if (notify) {
+        setError(data.message || "Failed to sync customer status");
+      }
+    } catch {
+      if (notify) setError("Error connecting to server");
+    }
+  };
+
   const handleRefundNow = async () => {
     if (!selected) return;
     if (!confirm(`Refund ₹${selected.refundAmount} to ${selected.fullName} via Razorpay now? This sends the money immediately to their original payment method.`)) return;
