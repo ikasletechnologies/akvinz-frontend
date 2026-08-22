@@ -476,6 +476,8 @@ export default function AdminDashboardPage() {
   const [generatingTopUpLink, setGeneratingTopUpLink] = useState(false);
   const [copiedTopUpLink, setCopiedTopUpLink] = useState(false);
   const [changingPlan, setChangingPlan] = useState(false);
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
+  const [planChangeSuccessMessage, setPlanChangeSuccessMessage] = useState("");
   const [activeSection, setActiveSection] = useState<string>("details");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
@@ -1045,6 +1047,9 @@ export default function AdminDashboardPage() {
         if (!data.success || openEditRequestIdRef.current !== customer.id) return;
         setSelected(data.customer);
         setEditForm(buildEditForm(data.customer));
+        const updatedDefaultPlan = data.customer.planDuration === 12 ? 24 : 12;
+        setNewPlanDuration(String(updatedDefaultPlan));
+        setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[updatedDefaultPlan] - SECURITY_DEPOSIT_AMOUNTS[data.customer.planDuration])));
       })
       .catch(() => {});
   };
@@ -1233,8 +1238,20 @@ export default function AdminDashboardPage() {
       const res = await adminFetch(`/api/admin/payment-links/${record.id}/mark-paid`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
+        if (data.customer) {
+          setSelected(data.customer);
+          setEditForm(buildEditForm(data.customer));
+          const nextPlan = data.customer.planDuration === 12 ? 24 : 12;
+          setNewPlanDuration(String(nextPlan));
+          setPlanChangeAmount(String(Math.abs(SECURITY_DEPOSIT_AMOUNTS[nextPlan] - SECURITY_DEPOSIT_AMOUNTS[data.customer.planDuration])));
+          setPlanChangeTopUpUrl("");
+          setPlanChangeSuccessMessage(`Payment recorded! Plan updated to ${data.customer.planDuration} months.`);
+          setTimeout(() => setPlanChangeSuccessMessage(""), 5000);
+        }
         loadPaymentLinkHistory(selected.id);
         loadInvoices(selected.id);
+        loadCustomers();
+        loadStats();
       } else {
         setError(data.message || "Failed to mark as paid");
       }
@@ -3069,6 +3086,11 @@ export default function AdminDashboardPage() {
 
                     <div className="border-t border-gray-800 pt-4">
                       <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Change Plan</h4>
+                      {planChangeSuccessMessage && (
+                        <div className="mb-3 px-3 py-2 rounded-lg border border-green-600/40 bg-green-500/10 text-xs text-green-400 font-medium">
+                          ✓ {planChangeSuccessMessage}
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mb-2">
                         Current: {selected.planDuration} months · ₹{SECURITY_DEPOSIT_AMOUNTS[selected.planDuration]} deposit · ₹{RENTAL_AMOUNTS[selected.planDuration]}/month
                       </div>
@@ -3153,9 +3175,24 @@ export default function AdminDashboardPage() {
                                         </button>
                                       </div>
                                     </div>
-                                    <p className="text-xs text-[#f26522] font-semibold animate-pulse mt-2">
-                                      Waiting for customer payment... The {newPlanDuration}-month plan will be applied automatically after payment succeeds.
-                                    </p>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 pt-1 border-t border-gray-800">
+                                      <p className="text-xs text-[#f26522] font-semibold animate-pulse">
+                                        Waiting for customer payment... The {newPlanDuration}-month plan will be applied automatically after payment succeeds.
+                                      </p>
+                                      <button
+                                        type="button"
+                                        disabled={checkingPaymentStatus}
+                                        onClick={async () => {
+                                          if (!selected) return;
+                                          setCheckingPaymentStatus(true);
+                                          await syncCustomerStatus(selected.id, true);
+                                          setCheckingPaymentStatus(false);
+                                        }}
+                                        className="px-2.5 py-1 text-xs bg-[#f26522]/10 border border-[#f26522]/40 rounded text-[#f26522] hover:bg-[#f26522]/20 transition-colors shrink-0 disabled:opacity-50 font-medium self-start sm:self-auto"
+                                      >
+                                        {checkingPaymentStatus ? "Checking..." : "Check Status"}
+                                      </button>
+                                    </div>
                                   </>
                                 ) : (
                                   <>
