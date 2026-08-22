@@ -411,6 +411,7 @@ export default function AdminDashboardPage() {
     fullName: "", mobileNumber: "", email: "",
     addressLine1: "", addressLine2: "", city: "", state: "", pincode: "",
     planDuration: "12", houseType: "rent",
+    depositPaymentMethod: "Cash", depositTransactionId: "",
   });
   const [addFiles, setAddFiles] = useState<Record<"aadharFrontFile" | "aadharBackFile" | "panFrontFile" | "panBackFile" | "residenceFile", File | null>>({
     aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null,
@@ -1657,6 +1658,7 @@ export default function AdminDashboardPage() {
           fullName: "", mobileNumber: "", email: "",
           addressLine1: "", addressLine2: "", city: "", state: "", pincode: "",
           planDuration: "12", houseType: "rent",
+          depositPaymentMethod: "Cash", depositTransactionId: "",
         });
         setAddFiles({ aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null });
         loadCustomers();
@@ -3958,7 +3960,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-800 shrink-0">
               <div>
                 <h2 className="text-lg font-bold">Add Customer</h2>
-                <p className="text-gray-400 text-sm mt-0.5">Manually add a customer — no OTP or payment required.</p>
+                <p className="text-gray-400 text-sm mt-0.5">Manually add a customer — no OTP or online payment gateway required.</p>
               </div>
               <button
                 onClick={() => setShowAddCustomer(false)}
@@ -4069,6 +4071,39 @@ export default function AdminDashboardPage() {
                     <option value="rent">Rent</option>
                     <option value="permanent">Permanent</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-800 pt-4">
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Security Deposit</h4>
+                <p className="text-xs text-gray-500 mb-3">
+                  This customer is marked as having paid the deposit — a receipt will be generated for it. Record how it was collected.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Payment Method</label>
+                    <select
+                      value={addForm.depositPaymentMethod}
+                      onChange={(e) => setAddForm({ ...addForm, depositPaymentMethod: e.target.value })}
+                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="UPI">UPI</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Transaction / Reference ID</label>
+                    <input
+                      type="text"
+                      value={addForm.depositTransactionId}
+                      onChange={(e) => setAddForm({ ...addForm, depositTransactionId: e.target.value })}
+                      placeholder="Optional"
+                      className="w-full px-3 py-2 bg-[#131724] border border-gray-700 rounded-lg text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
