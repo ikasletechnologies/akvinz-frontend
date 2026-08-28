@@ -20,6 +20,7 @@ interface Customer {
   panFrontImageUrl: string | null;
   panBackImageUrl: string | null;
   residenceDocUrl: string | null;
+  installationProofUrl: string | null;
   paymentStatus: string;
   rentalPlanDuration: number | null;
   rentalAmount: number | null;
@@ -153,6 +154,7 @@ const DOCUMENT_FIELDS: { key: keyof Customer; label: string; uploadField: string
   { key: "panFrontImageUrl", label: "PAN (Front)", uploadField: "panFrontFile" },
   { key: "panBackImageUrl", label: "PAN (Back)", uploadField: "panBackFile" },
   { key: "residenceDocUrl", label: "Residence Doc", uploadField: "residenceFile" },
+  { key: "installationProofUrl", label: "Installation Proof", uploadField: "installationProofFile" },
 ];
 
 const RETURN_STEPS: { key: string; label: string; kind: "status" | "boolean" }[] = [
@@ -413,8 +415,8 @@ export default function AdminDashboardPage() {
     planDuration: "12", houseType: "rent",
     depositPaymentMethod: "Cash", depositTransactionId: "",
   });
-  const [addFiles, setAddFiles] = useState<Record<"aadharFrontFile" | "aadharBackFile" | "panFrontFile" | "panBackFile" | "residenceFile", File | null>>({
-    aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null,
+  const [addFiles, setAddFiles] = useState<Record<"aadharFrontFile" | "aadharBackFile" | "panFrontFile" | "panBackFile" | "residenceFile" | "installationProofFile", File | null>>({
+    aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null, installationProofFile: null,
   });
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [addError, setAddError] = useState("");
@@ -1707,7 +1709,7 @@ export default function AdminDashboardPage() {
           planDuration: "12", houseType: "rent",
           depositPaymentMethod: "Cash", depositTransactionId: "",
         });
-        setAddFiles({ aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null });
+        setAddFiles({ aadharFrontFile: null, aadharBackFile: null, panFrontFile: null, panBackFile: null, residenceFile: null, installationProofFile: null });
         loadCustomers();
         loadStats();
       } else {
@@ -4183,6 +4185,7 @@ export default function AdminDashboardPage() {
                     ["panFrontFile", "PAN (Front)"],
                     ["panBackFile", "PAN (Back)"],
                     ["residenceFile", "Residence Proof"],
+                    ["installationProofFile", "Installation Proof"],
                   ] as const).map(([key, label]) => (
                     <div key={key}>
                       <label className="block text-xs text-gray-400 mb-1">{label}</label>
