@@ -111,7 +111,7 @@ export default function RentalFormPage() {
   };
 
   const getPrice = () => {
-    return rentalPlanDuration === "12" ? 2 : 1;
+    return rentalPlanDuration === "12" ? 699 : 449;
   };
 
   const handleDownloadReceipt = async () => {

@@ -20,6 +20,7 @@ interface Customer {
   panFrontImageUrl: string | null;
   panBackImageUrl: string | null;
   residenceDocUrl: string | null;
+  installationProofUrl: string | null;
   paymentStatus: string;
   rentalPlanDuration: number | null;
   rentalAmount: number | null;
@@ -144,8 +145,8 @@ const SUBSCRIPTION_STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
-const SECURITY_DEPOSIT_AMOUNTS: Record<number, number> = { 12: 3, 24: 4 };
-const RENTAL_AMOUNTS: Record<number, number> = { 12: 2, 24: 1 };
+const SECURITY_DEPOSIT_AMOUNTS: Record<number, number> = { 12: 2999, 24: 3999 };
+const RENTAL_AMOUNTS: Record<number, number> = { 12: 699, 24: 449 };
 
 const DOCUMENT_FIELDS: { key: keyof Customer; label: string; uploadField: string }[] = [
   { key: "aadharFrontImageUrl", label: "Aadhar (Front)", uploadField: "aadharFrontFile" },
@@ -153,6 +154,7 @@ const DOCUMENT_FIELDS: { key: keyof Customer; label: string; uploadField: string
   { key: "panFrontImageUrl", label: "PAN (Front)", uploadField: "panFrontFile" },
   { key: "panBackImageUrl", label: "PAN (Back)", uploadField: "panBackFile" },
   { key: "residenceDocUrl", label: "Residence Doc", uploadField: "residenceFile" },
+  { key: "installationProofUrl", label: "Investigation Form", uploadField: "installationProofFile" },
 ];
 
 const RETURN_STEPS: { key: string; label: string; kind: "status" | "boolean" }[] = [
