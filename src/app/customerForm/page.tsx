@@ -424,11 +424,11 @@ export default function CustomerFormPage() {
   };
 
   const getPrice = () => {
-    return planDuration === "12" ? "3" : "4";
+    return planDuration === "12" ? "2,999" : "3,999";
   };
 
   const getMonthlyPrice = (duration: string) => {
-    return duration === "12" ? "2" : "1";
+    return duration === "12" ? "699" : "499";
   };
 
   const allDocumentsUploaded = !!aadharFrontFile && !!aadharBackFile && !!panFrontFile && !!residenceFile;
@@ -590,7 +590,7 @@ export default function CustomerFormPage() {
                     <span className="text-xs text-[#f26522] font-semibold mt-0.5">{planDuration === '24' ? 'Smart Saver' : 'Easy Flexi'}</span>
                   </span>
                   <span className="flex flex-col items-end">
-                    <span className="text-sm font-semibold text-white">₹{planDuration === '24' ? '4' : '3'}</span>
+                    <span className="text-sm font-semibold text-white">₹{getPrice()}</span>
                     <span className="text-xs text-gray-500 mt-0.5">Refundable Security Deposit</span>
                   </span>
                 </div>
