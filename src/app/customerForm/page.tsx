@@ -424,7 +424,7 @@ export default function CustomerFormPage() {
   };
 
   const getPrice = () => {
-    return planDuration === "12" ? "2999" : "3999";
+    return planDuration === "12" ? "2,999" : "3,999";
   };
 
   const getMonthlyPrice = (duration: string) => {
