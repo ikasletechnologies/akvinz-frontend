@@ -143,12 +143,10 @@ export default function RentalFormPage() {
     }
 
     try {
-      const amount = getPrice();
-
       const res = await fetch(`${API_URL}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ rentalPlanDuration: parseInt(rentalPlanDuration) }),
       });
 
       const data = await res.json();
@@ -174,7 +172,6 @@ export default function RentalFormPage() {
               body: JSON.stringify({
                 customerId: customer.id,
                 rentalPlanDuration: parseInt(rentalPlanDuration),
-                rentalAmount: amount,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
@@ -242,15 +239,12 @@ export default function RentalFormPage() {
     }
 
     try {
-      const amount = getPrice();
-
       const res = await fetch(`${API_URL}/subscription/autopay/setup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: customer.id,
           rentalPlanDuration: parseInt(rentalPlanDuration),
-          rentalAmount: amount,
         }),
       });
 
@@ -276,7 +270,6 @@ export default function RentalFormPage() {
               body: JSON.stringify({
                 customerId: customer.id,
                 rentalPlanDuration: parseInt(rentalPlanDuration),
-                rentalAmount: amount,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_subscription_id: response.razorpay_subscription_id,
                 razorpay_signature: response.razorpay_signature,

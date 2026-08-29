@@ -184,16 +184,15 @@ export default function CustomerFormPage() {
     }
 
     try {
-      const amountStr = getPrice().replace(/,/g, '');
-      const amount = parseInt(amountStr);
-
       const res = await fetch(`${API_URL}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // draftId lets the order.paid webhook finalize this registration
-        // server-side even if this browser tab never gets to call
-        // /verify-payment itself (closed, lost connection, etc. right after paying).
-        body: JSON.stringify({ amount, notes: { draftId } }),
+        // draftId lets the backend price this order off the draft's own
+        // plan duration, and lets the order.paid webhook finalize this
+        // registration server-side even if this browser tab never gets to
+        // call /verify-payment itself (closed, lost connection, etc. right
+        // after paying).
+        body: JSON.stringify({ notes: { draftId } }),
       });
 
       const data = await res.json();
