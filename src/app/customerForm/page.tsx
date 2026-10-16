@@ -236,7 +236,7 @@ export default function CustomerFormPage() {
                   console.error("Receipt download failed:", e)
                 );
               }
-              setStep(3);
+              setStep(4);
             } else {
               alert("Payment verification failed! " + (verifyData.message || "You can retry payment; your details are saved as a draft."));
             }
@@ -354,6 +354,24 @@ export default function CustomerFormPage() {
     }
   };
 
+  const handleDetailsContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpVerified) {
+      alert("Please verify OTP first");
+      return;
+    }
+    if (!fullName.trim() || !email.trim() || !addressLine1.trim() || !city.trim() || !stateName.trim() || !pincode.trim()) {
+      alert("Please complete all required personal and address details before continuing.");
+      return;
+    }
+    if (!isValidEmailFormat || emailAlreadyRegistered) {
+      alert("Please enter an available, valid email address.");
+      return;
+    }
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpVerified) {
@@ -431,6 +449,8 @@ export default function CustomerFormPage() {
   };
 
   const allDocumentsUploaded = !!aadharFrontFile && !!aadharBackFile && !!panFrontFile && !!residenceFile;
+  const personalDetailsComplete = otpVerified && !!fullName.trim() && isValidEmailFormat && !emailAlreadyRegistered && !!addressLine1.trim() && !!city.trim() && !!stateName.trim() && !!pincode.trim();
+  const canContinue = step === 1 ? personalDetailsComplete : otpVerified && allDocumentsUploaded && !emailAlreadyRegistered;
 
   return (
     <div className="min-h-screen bg-[#131724] text-white flex flex-col font-sans">
@@ -524,25 +544,29 @@ export default function CustomerFormPage() {
         {/* Subtle background pipes pattern can be added here if needed, keeping it simple for now */}
 
         {/* Title Section */}
-        {step < 3 && (
+        {step < 4 && (
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 mb-3">
               <svg className="w-3 h-3 text-[#f26522]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
-              <span className="text-[#f26522] text-sm font-semibold tracking-wider uppercase">Step {step} of 2</span>
+              <span className="text-[#f26522] text-sm font-semibold tracking-wider uppercase">Step {step} of 3</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              {step === 1 ? "Customer Registration" : "Payment Details"}
+              {step === 1 ? "Customer Registration" : step === 2 ? "Required Documents" : "Payment Details"}
             </h1>
             <p className="text-gray-400 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
-              {step === 1 ? "Welcome to Akvinz! Please provide your details and required documentation to complete your registration." : "Review your selected plan and complete the secure payment to finish your registration."}
+              {step === 1
+                ? "Welcome to Akvinz! Please provide your plan and personal details to continue."
+                : step === 2
+                  ? "Upload the required identity and residence documents to continue."
+                  : "Review your selected plan and complete the secure payment to finish your registration."}
             </p>
           </div>
         )}
 
-        {step === 1 && (
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        {(step === 1 || step === 2) && (
+          <form className="space-y-6" onSubmit={step === 1 ? handleDetailsContinue : handleSubmit}>
 
-            {isResumingDraft && (
+            {step === 1 && isResumingDraft && (
               <div className="flex items-center gap-2 text-sm text-gray-400 bg-[#1a1f30]/80 border border-gray-700/50 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 animate-spin text-[#f26522]" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -551,7 +575,7 @@ export default function CustomerFormPage() {
                 Restoring your saved registration...
               </div>
             )}
-            {resumedDraft && !isResumingDraft && (
+            {step === 1 && resumedDraft && !isResumingDraft && (
               <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
@@ -561,7 +585,7 @@ export default function CustomerFormPage() {
             )}
 
             {/* Subscription Plan Card */}
-            <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm">
+            <div className={step === 1 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">01</span>
@@ -597,7 +621,7 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Personal Information Card */}
-            <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm">
+            <div className={step === 1 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">02</span>
@@ -817,7 +841,7 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Identity Documents Card */}
-            <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm">
+            <div className={step === 2 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-stretch gap-3 mb-6">
                 <div className="w-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522] shrink-0">
                   <span className="font-bold text-sm">03</span>
@@ -889,7 +913,7 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Residence Status Card */}
-            <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm">
+            <div className={step === 2 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">04</span>
@@ -970,17 +994,26 @@ export default function CustomerFormPage() {
             <div className="pt-6">
               <button
                 type="submit"
-                disabled={!otpVerified || !allDocumentsUploaded || emailAlreadyRegistered}
-                className={`w-full font-semibold py-4 px-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${otpVerified && allDocumentsUploaded && !emailAlreadyRegistered ? 'bg-[#f26522] hover:bg-[#e05a1e] text-white shadow-[#f26522]/20' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+                disabled={!canContinue}
+                className={`w-full font-semibold py-4 px-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${canContinue ? 'bg-[#f26522] hover:bg-[#e05a1e] text-white shadow-[#f26522]/20' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
               >
-                <span className="text-lg">Continue to Next Step</span>
+                <span className="text-lg">{step === 1 ? "Continue to Documents" : "Continue to Payment"}</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
                 </svg>
               </button>
-              {otpVerified && !allDocumentsUploaded && (
+              {step === 2 && (
+                <button
+                  type="button"
+                  onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  className="w-full mt-4 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                >
+                  Back to Personal Details
+                </button>
+              )}
+              {step === 2 && otpVerified && !allDocumentsUploaded && (
                 <p className="text-center text-xs text-red-400 mt-3">
-                  Please upload all 5 required documents to continue.
+                  Please upload all 4 required documents to continue.
                 </p>
               )}
               <div className="mt-5 flex items-center justify-center gap-2 text-gray-500">
@@ -994,7 +1027,7 @@ export default function CustomerFormPage() {
           </form>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm space-y-8 max-w-xl mx-auto mt-4 shadow-2xl shadow-black/20">
             <div className="flex items-center justify-between border-b border-gray-700/50 pb-6">
               <div>
@@ -1059,17 +1092,17 @@ export default function CustomerFormPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(2)}
                 disabled={isProcessingPayment}
                 className="w-full mt-4 text-gray-400 hover:text-white text-sm font-medium transition-colors disabled:opacity-50"
               >
-                ← Back to Registration
+                Back to Documents
               </button>
             </div>
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-8 sm:p-12 backdrop-blur-sm text-center max-w-xl mx-auto mt-4">
             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
