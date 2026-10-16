@@ -453,9 +453,9 @@ export default function CustomerFormPage() {
   const canContinue = step === 1 ? personalDetailsComplete : otpVerified && allDocumentsUploaded && !emailAlreadyRegistered;
 
   return (
-    <div className="min-h-screen bg-[#131724] text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans">
       {/* Top Header Navigation */}
-      <header className="bg-[#1a1f30] flex items-center justify-between px-4 py-3 shadow-md sticky top-0 z-10 border-b border-gray-800">
+      <header className="bg-[#1a1f30] flex items-center justify-between px-4 py-3 shadow-sm sticky top-0 z-10 border-b border-gray-800">
         <a href="https://akvinz.com/" target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-white rounded-md transition-colors">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -491,11 +491,11 @@ export default function CustomerFormPage() {
               </svg>
             </button>
             {openContactCard === "call" && (
-              <div className="hidden sm:block absolute right-0 top-full mt-2 w-56 bg-[#1a1f30] border border-gray-700/50 rounded-xl shadow-lg p-4 z-20">
+              <div className="hidden sm:block absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-20">
                 <p className="text-xs text-gray-500 mb-1">Call us</p>
                 <a
                   href="tel:+918110016161"
-                  className="text-sm text-white font-medium hover:text-[#f26522] transition-colors"
+                  className="text-sm text-gray-900 font-medium hover:text-[#f26522] transition-colors"
                 >
                   +91 81100 16161
                 </a>
@@ -506,7 +506,7 @@ export default function CustomerFormPage() {
           <div className="relative">
             <a
               href="mailto:Customerconnect@akvinz.com"
-              className="sm:hidden p-2 bg-gray-800 text-gray-400 rounded-full hover:text-white transition-colors"
+              className="sm:hidden p-2 bg-gray-100 text-gray-600 rounded-full hover:text-gray-900 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
@@ -515,18 +515,18 @@ export default function CustomerFormPage() {
             <button
               type="button"
               onClick={() => setOpenContactCard((v) => (v === "email" ? null : "email"))}
-              className="hidden sm:inline-flex p-2 bg-gray-800 text-gray-400 rounded-full hover:text-white transition-colors"
+              className="hidden sm:inline-flex p-2 bg-gray-100 text-gray-600 rounded-full hover:text-gray-900 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
               </svg>
             </button>
             {openContactCard === "email" && (
-              <div className="hidden sm:block absolute right-0 top-full mt-2 w-64 bg-[#1a1f30] border border-gray-700/50 rounded-xl shadow-lg p-4 z-20">
+              <div className="hidden sm:block absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-20">
                 <p className="text-xs text-gray-500 mb-1">Email us</p>
                 <a
                   href="mailto:Customerconnect@akvinz.com"
-                  className="text-sm text-white font-medium hover:text-[#f26522] transition-colors break-all"
+                  className="text-sm text-gray-900 font-medium hover:text-[#f26522] transition-colors break-all"
                 >
                   Customerconnect@akvinz.com
                 </a>
@@ -535,25 +535,32 @@ export default function CustomerFormPage() {
           </div>
         </div>
       </header>
-      <p className="text-center text-xs text-gray-500 font-bold py-2 px-4">
+      <div className="mx-auto mt-4 h-20 w-[min(88vw,360px)] overflow-hidden rounded-xl bg-white" aria-label="Rent O Mate">
+        <img
+          src="/rent-o-mate-logo.png"
+          alt="Rent O Mate - Own Less, Live Smart"
+          className="h-auto w-full -translate-y-[40%]"
+        />
+      </div>
+      <p className="mt-2 text-center text-xs text-gray-500 font-bold px-4">
         RENT O MATE is a registered service of AKVINZ.
       </p>
 
       {/* Main Content */}
-      <main className="flex-grow max-w-3xl mx-auto w-full px-4 py-10 relative">
+      <main className="flex-grow max-w-3xl mx-auto w-full px-4 py-6 sm:py-8 relative">
         {/* Subtle background pipes pattern can be added here if needed, keeping it simple for now */}
 
         {/* Title Section */}
         {step < 4 && (
-          <div className="text-center mb-10">
+          <div className="text-center mb-8 sm:mb-10">
             <div className="inline-flex items-center gap-2 mb-3">
               <svg className="w-3 h-3 text-[#f26522]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
-              <span className="text-[#f26522] text-sm font-semibold tracking-wider uppercase">Step {step} of 3</span>
+              <span className="text-[#f26522] text-sm font-semibold tracking-wider uppercase">{step < 3 ? `Step ${step} of 2` : "Payment"}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               {step === 1 ? "Customer Registration" : step === 2 ? "Required Documents" : "Payment Details"}
             </h1>
-            <p className="text-gray-400 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
+            <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
               {step === 1
                 ? "Welcome to Akvinz! Please provide your plan and personal details to continue."
                 : step === 2
@@ -567,7 +574,7 @@ export default function CustomerFormPage() {
           <form className="space-y-6" onSubmit={step === 1 ? handleDetailsContinue : handleSubmit}>
 
             {step === 1 && isResumingDraft && (
-              <div className="flex items-center gap-2 text-sm text-gray-400 bg-[#1a1f30]/80 border border-gray-700/50 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 animate-spin text-[#f26522]" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
@@ -585,35 +592,35 @@ export default function CustomerFormPage() {
             )}
 
             {/* Subscription Plan Card */}
-            <div className={step === 1 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
+            <div className={step === 1 ? "bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">01</span>
                 </div>
-                <h2 className="text-xl font-semibold text-white">Subscription Plan</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Subscription Plan</h2>
               </div>
 
               <div className="flex gap-4 mb-2 sm:ml-11">
-                <label className={`flex-1 flex items-baseline justify-center gap-1 cursor-pointer group rounded-xl border-2 py-5 transition-colors ${planDuration === '24' ? 'border-[#f26522] bg-[#f26522]/5' : 'border-gray-700 hover:border-gray-500'}`}>
+                <label className={`flex-1 flex items-baseline justify-center gap-1 cursor-pointer group rounded-xl border-2 py-5 transition-colors ${planDuration === '24' ? 'border-[#f26522] bg-[#f26522]/5' : 'border-gray-300 hover:border-gray-500'}`}>
                   <input type="radio" name="plan_duration" value="24" checked={planDuration === "24"} onChange={() => setPlanDuration("24")} className="hidden" />
-                  <span className={`text-3xl font-extrabold ${planDuration === '24' ? 'text-[#f26522]' : 'text-white'}`}>₹{getMonthlyPrice("24")}</span>
+                  <span className={`text-3xl font-extrabold ${planDuration === '24' ? 'text-[#f26522]' : 'text-gray-900'}`}>₹{getMonthlyPrice("24")}</span>
                   <span className="text-sm text-gray-500">/ month</span>
                 </label>
-                <label className={`flex-1 flex items-baseline justify-center gap-1 cursor-pointer group rounded-xl border-2 py-5 transition-colors ${planDuration === '12' ? 'border-[#f26522] bg-[#f26522]/5' : 'border-gray-700 hover:border-gray-500'}`}>
+                <label className={`flex-1 flex items-baseline justify-center gap-1 cursor-pointer group rounded-xl border-2 py-5 transition-colors ${planDuration === '12' ? 'border-[#f26522] bg-[#f26522]/5' : 'border-gray-300 hover:border-gray-500'}`}>
                   <input type="radio" name="plan_duration" value="12" checked={planDuration === "12"} onChange={() => setPlanDuration("12")} className="hidden" />
-                  <span className={`text-3xl font-extrabold ${planDuration === '12' ? 'text-[#f26522]' : 'text-white'}`}>₹{getMonthlyPrice("12")}</span>
+                  <span className={`text-3xl font-extrabold ${planDuration === '12' ? 'text-[#f26522]' : 'text-gray-900'}`}>₹{getMonthlyPrice("12")}</span>
                   <span className="text-sm text-gray-500">/ month</span>
                 </label>
               </div>
 
               {planDuration && (
-                <div className="sm:ml-11 mt-4 rounded-xl bg-[#131724] border border-gray-700/50 px-4 py-3 flex items-center justify-between">
+                <div className="sm:ml-11 mt-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 flex items-center justify-between">
                   <span className="flex flex-col">
-                    <span className="text-sm text-white font-medium">{planDuration} Months Subscription</span>
+                    <span className="text-sm text-gray-900 font-medium">{planDuration} Months Subscription</span>
                     <span className="text-xs text-[#f26522] font-semibold mt-0.5">{planDuration === '24' ? 'Smart Saver' : 'Easy Flexi'}</span>
                   </span>
                   <span className="flex flex-col items-end">
-                    <span className="text-sm font-semibold text-white">₹{getPrice()}</span>
+                    <span className="text-sm font-semibold text-gray-900">₹{getPrice()}</span>
                     <span className="text-xs text-gray-500 mt-0.5">Refundable Security Deposit</span>
                   </span>
                 </div>
@@ -621,32 +628,32 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Personal Information Card */}
-            <div className={step === 1 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
+            <div className={step === 1 ? "bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">02</span>
                 </div>
-                <h2 className="text-xl font-semibold text-white">Personal Information</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
               </div>
 
               <div className="space-y-5">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-sm text-gray-300 mb-2">Full Name <span className="text-red-500">*</span></label>
+                  <label className="block text-sm text-gray-700 mb-2">Full Name <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                       </svg>
                     </div>
-                    <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="John Doe" />
+                    <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="John Doe" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Mobile Number & OTP Verification */}
                   <div className="col-span-1 sm:col-span-2">
-                    <label className="block text-sm text-gray-300 mb-2">Mobile Number <span className="text-red-500">*</span></label>
+                    <label className="block text-sm text-gray-700 mb-2">Mobile Number <span className="text-red-500">*</span></label>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <div className="relative flex-grow">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -659,7 +666,7 @@ export default function CustomerFormPage() {
                           value={mobileNumber}
                           onChange={(e) => setMobileNumber(e.target.value)}
                           disabled={otpVerified}
-                          className={`block w-full pl-12 pr-4 py-3 bg-[#131724] border rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors ${otpVerified ? 'border-green-500/50 opacity-70' : 'border-gray-700'}`}
+                          className={`block w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors ${otpVerified ? 'border-green-500/50 opacity-70' : 'border-gray-300'}`}
                           placeholder="Enter 10 digit number"
                         />
                       </div>
@@ -669,7 +676,7 @@ export default function CustomerFormPage() {
                           type="button"
                           onClick={handleSendOtp}
                           disabled={isSendingOtp || mobileNumber.length < 10 || mobileAlreadyRegistered}
-                          className="whitespace-nowrap px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-xl border border-gray-700 transition-colors disabled:opacity-50"
+                          className="whitespace-nowrap px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl border border-gray-300 transition-colors disabled:opacity-50"
                         >
                           {isSendingOtp ? "Sending..." : (otpSent ? "Resend OTP" : "Send OTP")}
                         </button>
@@ -684,22 +691,22 @@ export default function CustomerFormPage() {
                     </div>
 
                     {!otpVerified && (
-                      <div className="mt-3 border border-gray-700 rounded-xl bg-[#131724] overflow-hidden">
+                      <div className="mt-3 border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
                         <div className="flex items-center gap-3 px-4 py-3">
                           <input
                             type="checkbox"
                             checked={termsAccepted}
                             onChange={(e) => setTermsAccepted(e.target.checked)}
-                            className="w-5 h-5 rounded border-gray-600 bg-[#1a1f30] text-[#f26522] focus:ring-1 focus:ring-[#f26522] accent-[#f26522] shrink-0"
+                            className="w-5 h-5 rounded border-gray-300 bg-white text-[#f26522] focus:ring-1 focus:ring-[#f26522] accent-[#f26522] shrink-0"
                           />
-                          <span className="text-sm text-gray-300 flex-grow">
+                          <span className="text-sm text-gray-700 flex-grow">
                             I have read and accept the AKVINZ Subscription Agreement
                           </span>
                           <button
                             type="button"
                             onClick={() => setTermsExpanded((v) => !v)}
                             aria-label={termsExpanded ? "Collapse terms" : "Expand terms"}
-                            className="p-1 text-gray-400 hover:text-white transition-colors shrink-0"
+                            className="p-1 text-gray-600 hover:text-gray-900 transition-colors shrink-0"
                           >
                             <svg
                               className={`w-5 h-5 transition-transform ${termsExpanded ? "rotate-180" : ""}`}
@@ -712,7 +719,7 @@ export default function CustomerFormPage() {
                           </button>
                         </div>
                         {termsExpanded && (
-                          <div className="max-h-96 overflow-y-auto border-t border-gray-700 px-4 py-4 bg-[#1a1f30]">
+                          <div className="max-h-96 overflow-y-auto border-t border-gray-300 px-4 py-4 bg-white">
                             <TermsContent />
                           </div>
                         )}
@@ -726,7 +733,7 @@ export default function CustomerFormPage() {
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value)}
                           placeholder="Enter 6-digit OTP"
-                          className="block w-full sm:w-1/2 px-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors text-center tracking-[0.5em]"
+                          className="block w-full sm:w-1/2 px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors text-center tracking-[0.5em]"
                           maxLength={6}
                         />
                         <button
@@ -758,7 +765,7 @@ export default function CustomerFormPage() {
 
                   {/* Email ID */}
                   <div className="col-span-1 sm:col-span-2">
-                    <label className="block text-sm text-gray-300 mb-2">Email ID <span className="text-red-500">*</span></label>
+                    <label className="block text-sm text-gray-700 mb-2">Email ID <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -772,13 +779,13 @@ export default function CustomerFormPage() {
                           setEmail(e.target.value);
                           setEmailAlreadyRegistered(false);
                         }}
-                        className={`block w-full pl-12 pr-4 py-3 bg-[#131724] border rounded-xl focus:ring-1 text-white placeholder-gray-600 transition-colors ${emailAlreadyRegistered ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-700 focus:ring-[#f26522] focus:border-[#f26522]"}`}
+                        className={`block w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl focus:ring-1 text-gray-900 placeholder-gray-400 transition-colors ${emailAlreadyRegistered ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300 focus:ring-[#f26522] focus:border-[#f26522]"}`}
                         placeholder="john@example.com"
                       />
                     </div>
                     {checkingEmail ? (
-                      <p className="mt-2 text-sm text-gray-400 flex items-center gap-1.5">
-                        <svg className="animate-spin h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                      <p className="mt-2 text-sm text-gray-600 flex items-center gap-1.5">
+                        <svg className="animate-spin h-3.5 w-3.5 text-gray-600" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                         </svg>
@@ -801,7 +808,7 @@ export default function CustomerFormPage() {
 
                 {/* Address Section */}
                 <div className="space-y-4 pt-2">
-                  <label className="block text-sm text-gray-300">Full Address <span className="text-red-500">*</span></label>
+                  <label className="block text-sm text-gray-700">Full Address <span className="text-red-500">*</span></label>
 
                   {/* Address Line 1 */}
                   <div className="relative">
@@ -810,7 +817,7 @@ export default function CustomerFormPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                       </svg>
                     </div>
-                    <input type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="House No., Building Name, Street Area" />
+                    <input type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="House No., Building Name, Street Area" />
                   </div>
 
                   {/* Address Line 2 */}
@@ -821,19 +828,19 @@ export default function CustomerFormPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                       </svg>
                     </div>
-                    <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="Locality, Landmark (Optional)" />
+                    <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} className="block w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="Locality, Landmark (Optional)" />
                   </div>
 
                   {/* City, State, Pincode */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="relative">
-                      <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="block w-full px-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="City" />
+                      <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="City" />
                     </div>
                     <div className="relative">
-                      <input type="text" value={stateName} onChange={(e) => setStateName(e.target.value)} className="block w-full px-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="State" />
+                      <input type="text" value={stateName} onChange={(e) => setStateName(e.target.value)} className="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="State" />
                     </div>
                     <div className="relative">
-                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} className="block w-full px-4 py-3 bg-[#131724] border border-gray-700 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-white placeholder-gray-600 transition-colors" placeholder="Pincode" />
+                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} className="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] text-gray-900 placeholder-gray-400 transition-colors" placeholder="Pincode" />
                     </div>
                   </div>
                 </div>
@@ -841,12 +848,12 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Identity Documents Card */}
-            <div className={step === 2 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
+            <div className={step === 2 ? "bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-stretch gap-3 mb-6">
                 <div className="w-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522] shrink-0">
                   <span className="font-bold text-sm">03</span>
                 </div>
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-semibold text-gray-900">
                   Please upload the required documents below to proceed with your subscriptions{" "}
                   <span className="text-xs font-normal text-gray-500">(By continuing, you agree to let us securely use your information to provide and manage your subscription, as per applicable privacy laws)</span>
                 </h2>
@@ -855,12 +862,12 @@ export default function CustomerFormPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Aadhaar Front Upload */}
                 <div>
-                  <span className="block text-sm text-gray-300 mb-2">Aadhaar Card Image (Front Side)</span>
-                  <label className="border border-dashed border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-[#131724]/50 hover:border-[#f26522] hover:bg-[#131724] transition-all cursor-pointer group block w-full relative">
+                  <span className="block text-sm text-gray-700 mb-2">Aadhaar Card Image (Front Side)</span>
+                  <label className="border border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:border-[#f26522] hover:bg-gray-50 transition-all cursor-pointer group block w-full relative">
                     <svg className="w-8 h-8 text-gray-500 mb-3 group-hover:text-[#f26522] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
-                    <p className="text-sm text-gray-400 mb-1">
+                    <p className="text-sm text-gray-600 mb-1">
                       {aadharFrontFile ? (
                         <span className="text-[#f26522] font-semibold">{aadharFrontFile.name}</span>
                       ) : (
@@ -874,12 +881,12 @@ export default function CustomerFormPage() {
 
                 {/* Aadhaar Back Upload */}
                 <div>
-                  <span className="block text-sm text-gray-300 mb-2">Aadhaar Card Image (Back Side)</span>
-                  <label className="border border-dashed border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-[#131724]/50 hover:border-[#f26522] hover:bg-[#131724] transition-all cursor-pointer group block w-full relative">
+                  <span className="block text-sm text-gray-700 mb-2">Aadhaar Card Image (Back Side)</span>
+                  <label className="border border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:border-[#f26522] hover:bg-gray-50 transition-all cursor-pointer group block w-full relative">
                     <svg className="w-8 h-8 text-gray-500 mb-3 group-hover:text-[#f26522] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
-                    <p className="text-sm text-gray-400 mb-1">
+                    <p className="text-sm text-gray-600 mb-1">
                       {aadharBackFile ? (
                         <span className="text-[#f26522] font-semibold">{aadharBackFile.name}</span>
                       ) : (
@@ -893,12 +900,12 @@ export default function CustomerFormPage() {
 
                 {/* PAN Front Upload */}
                 <div>
-                  <span className="block text-sm text-gray-300 mb-2">PAN Card Image (Front Side)</span>
-                  <label className="border border-dashed border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-[#131724]/50 hover:border-[#f26522] hover:bg-[#131724] transition-all cursor-pointer group block w-full relative">
+                  <span className="block text-sm text-gray-700 mb-2">PAN Card Image (Front Side)</span>
+                  <label className="border border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:border-[#f26522] hover:bg-gray-50 transition-all cursor-pointer group block w-full relative">
                     <svg className="w-8 h-8 text-gray-500 mb-3 group-hover:text-[#f26522] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
-                    <p className="text-sm text-gray-400 mb-1">
+                    <p className="text-sm text-gray-600 mb-1">
                       {panFrontFile ? (
                         <span className="text-[#f26522] font-semibold">{panFrontFile.name}</span>
                       ) : (
@@ -913,37 +920,37 @@ export default function CustomerFormPage() {
             </div>
 
             {/* Residence Status Card */}
-            <div className={step === 2 ? "bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
+            <div className={step === 2 ? "bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 backdrop-blur-sm" : "hidden"}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 rounded bg-[#f26522]/10 flex items-center justify-center text-[#f26522]">
                   <span className="font-bold text-sm">04</span>
                 </div>
-                <h2 className="text-xl font-semibold text-white">Residence Status</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Residence Status</h2>
               </div>
-              <p className="text-sm text-gray-400 mb-6 ml-1 sm:ml-11">
+              <p className="text-sm text-gray-600 mb-6 ml-1 sm:ml-11">
                 Kindly select your residence type and provide the corresponding supporting document.
               </p>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-6 ml-1 sm:ml-11">
                 <label className="flex items-center cursor-pointer group">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${houseType === 'permanent' ? 'border-[#f26522]' : 'border-gray-500 group-hover:border-gray-400'}`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${houseType === 'permanent' ? 'border-[#f26522]' : 'border-gray-400 group-hover:border-gray-500'}`}>
                     {houseType === 'permanent' && <div className="w-2.5 h-2.5 bg-[#f26522] rounded-full"></div>}
                   </div>
                   <input type="radio" name="residence" value="permanent" checked={houseType === "permanent"} onChange={() => { setHouseType("permanent"); setResidenceDocType(permanentDocOptions[0]); }} className="hidden" />
-                  <span className={`text-base ${houseType === 'permanent' ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>Permanent House</span>
+                  <span className={`text-base ${houseType === 'permanent' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-700'}`}>Permanent House</span>
                 </label>
                 <label className="flex items-center cursor-pointer group">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${houseType === 'rent' ? 'border-[#f26522]' : 'border-gray-500 group-hover:border-gray-400'}`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${houseType === 'rent' ? 'border-[#f26522]' : 'border-gray-400 group-hover:border-gray-500'}`}>
                     {houseType === 'rent' && <div className="w-2.5 h-2.5 bg-[#f26522] rounded-full"></div>}
                   </div>
                   <input type="radio" name="residence" value="rent" checked={houseType === "rent"} onChange={() => { setHouseType("rent"); setResidenceDocType(rentDocOptions[0]); }} className="hidden" />
-                  <span className={`text-base ${houseType === 'rent' ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>Rent House</span>
+                  <span className={`text-base ${houseType === 'rent' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-700'}`}>Rent House</span>
                 </label>
               </div>
 
               {/* Document Type Selection */}
               <div className="mb-6 ml-1 sm:ml-11">
-                <span className="block text-sm text-gray-300 mb-3">
+                <span className="block text-sm text-gray-700 mb-3">
                   Please select one document to submit as proof:
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -952,7 +959,7 @@ export default function CustomerFormPage() {
                       key={doc}
                       type="button"
                       onClick={() => setResidenceDocType(doc)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${residenceDocType === doc ? 'bg-[#f26522]/10 border-[#f26522] text-[#f26522]' : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-300'}`}
+                      className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${residenceDocType === doc ? 'bg-[#f26522]/10 border-[#f26522] text-[#f26522]' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-700'}`}
                     >
                       {doc}
                     </button>
@@ -961,19 +968,19 @@ export default function CustomerFormPage() {
               </div>
 
               {/* Conditional Upload Box */}
-              <div className="bg-[#131724] border border-gray-700 rounded-xl p-5 ml-0 sm:ml-11">
-                <span className="block text-sm font-medium text-gray-300 mb-3">
+              <div className="bg-gray-50 border border-gray-300 rounded-xl p-5 ml-0 sm:ml-11">
+                <span className="block text-sm font-medium text-gray-700 mb-3">
                   {residenceDocType} Image (Required for {houseType === "permanent" ? "Permanent House" : "Rent House"})
                 </span>
-                <label className="border border-gray-600 rounded-lg p-3 flex flex-col sm:flex-row items-center sm:justify-between gap-3 cursor-pointer hover:border-[#f26522] transition-colors group bg-[#1a1f30] block w-full relative">
+                <label className="border border-gray-300 rounded-lg p-3 flex flex-col sm:flex-row items-center sm:justify-between gap-3 cursor-pointer hover:border-[#f26522] transition-colors group bg-white block w-full relative">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded bg-gray-800 text-gray-400 group-hover:text-[#f26522] transition-colors">
+                    <div className="p-2 rounded bg-gray-100 text-gray-600 group-hover:text-[#f26522] transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">
+                      <p className="text-sm text-gray-700">
                         {residenceFile ? (
                           <span className="text-[#f26522] font-semibold">{residenceFile.name}</span>
                         ) : (
@@ -995,7 +1002,7 @@ export default function CustomerFormPage() {
               <button
                 type="submit"
                 disabled={!canContinue}
-                className={`w-full font-semibold py-4 px-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${canContinue ? 'bg-[#f26522] hover:bg-[#e05a1e] text-white shadow-[#f26522]/20' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}
+                className={`w-full font-semibold py-4 px-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${canContinue ? 'bg-[#f26522] hover:bg-[#e05a1e] text-white shadow-[#f26522]/20' : 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-300'}`}
               >
                 <span className="text-lg">{step === 1 ? "Continue to Documents" : "Continue to Payment"}</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1006,7 +1013,7 @@ export default function CustomerFormPage() {
                 <button
                   type="button"
                   onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  className="w-full mt-4 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                  className="w-full mt-4 text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
                 >
                   Back to Personal Details
                 </button>
@@ -1028,11 +1035,11 @@ export default function CustomerFormPage() {
         )}
 
         {step === 3 && (
-          <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-6 sm:p-8 backdrop-blur-sm space-y-8 max-w-xl mx-auto mt-4 shadow-2xl shadow-black/20">
-            <div className="flex items-center justify-between border-b border-gray-700/50 pb-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 backdrop-blur-sm space-y-8 max-w-xl mx-auto mt-4 shadow-2xl shadow-black/20">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-6">
               <div>
-                <h3 className="text-xl font-bold text-white">Rent O Mate By Akvinz</h3>
-                <p className="text-gray-400 mt-1">{planDuration} Months Subscription</p>
+                <h3 className="text-xl font-bold text-gray-900">Rent O Mate By Akvinz</h3>
+                <p className="text-gray-600 mt-1">{planDuration} Months Subscription</p>
                 <span className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
@@ -1041,27 +1048,27 @@ export default function CustomerFormPage() {
                 </span>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-400 line-through">₹{planDuration === "12" ? "4,999" : "7,999"}</p>
+                <p className="text-sm text-gray-600 line-through">₹{planDuration === "12" ? "4,999" : "7,999"}</p>
                 <p className="text-3xl font-bold text-[#f26522]">₹{getPrice()}</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-300">Refundable Security Deposit</span>
-                <span className="text-white font-medium">₹{getPrice()}</span>
+                <span className="text-gray-700">Refundable Security Deposit</span>
+                <span className="text-gray-900 font-medium">₹{getPrice()}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-300">GST on Deposit</span>
-                <span className="text-white font-medium text-green-400">Not Applicable</span>
+                <span className="text-gray-700">GST on Deposit</span>
+                <span className="text-gray-900 font-medium text-green-400">Not Applicable</span>
               </div>
-              <div className="flex items-center justify-between text-lg font-bold pt-4 border-t border-gray-700/50">
-                <span className="text-white">Total Payable Now</span>
+              <div className="flex items-center justify-between text-lg font-bold pt-4 border-t border-gray-200">
+                <span className="text-gray-900">Total Payable Now</span>
                 <span className="text-[#f26522]">₹{getPrice()}</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-2.5 -mt-2 p-3.5 rounded-xl bg-[#131724] border border-gray-700/50">
+            <div className="flex items-start gap-2.5 -mt-2 p-3.5 rounded-xl bg-gray-50 border border-gray-200">
               <svg className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
@@ -1094,7 +1101,7 @@ export default function CustomerFormPage() {
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={isProcessingPayment}
-                className="w-full mt-4 text-gray-400 hover:text-white text-sm font-medium transition-colors disabled:opacity-50"
+                className="w-full mt-4 text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 Back to Documents
               </button>
@@ -1103,14 +1110,14 @@ export default function CustomerFormPage() {
         )}
 
         {step === 4 && (
-          <div className="bg-[#1a1f30]/80 border border-gray-700/50 rounded-2xl p-8 sm:p-12 backdrop-blur-sm text-center max-w-xl mx-auto mt-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 sm:p-12 backdrop-blur-sm text-center max-w-xl mx-auto mt-4">
             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-4">Registration Successful!</h2>
-            <p className="text-gray-400 mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
+            <p className="text-gray-600 mb-8">
               Thank you for choosing Akvinz. Your payment has been successfully received and your registration is complete.
             </p>
             {receiptError && <p className="text-red-400 text-sm mb-4">{receiptError}</p>}
@@ -1128,7 +1135,7 @@ export default function CustomerFormPage() {
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-xl border border-gray-700 transition-colors"
+                className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl border border-gray-300 transition-colors"
               >
                 Back to Home
               </button>
