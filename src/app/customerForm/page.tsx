@@ -418,7 +418,7 @@ export default function CustomerFormPage() {
           setDraftId(data.draftId);
           localStorage.setItem("akvinz_draft_id", data.draftId);
         }
-        setStep(2);
+        setStep(3);
       } else {
         alert("Registration failed: " + data.message);
       }
